@@ -1,0 +1,18 @@
+[Unit]
+Description=Absolute Term Scan API (unix socket)
+After=network.target
+
+[Service]
+Type=simple
+User=admin
+Group=www-data
+WorkingDirectory=/home/project/absolute_term
+Environment=ABSOLUTE_SOCK=/run/absolute/absolute.sock
+RuntimeDirectory=absolute
+RuntimeDirectoryMode=0775
+ExecStart=/usr/bin/python3 /home/project/absolute_term/api_server.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>广告极限词扫描</title>
+<link rel="stylesheet" href="/shared/ui.css">
+<style>
+body { max-width: 1400px; margin: 0 auto; padding: 20px; }
+.topnav {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-bottom: 16px; padding: 10px 14px;
+  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+.topnav .brand { font-weight: 600; font-size: 15px; margin-right: auto; color: #333; }
+.topnav .menu-btn {
+  padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;
+  background: #fafafa; color: #333; cursor: pointer; font-size: 13px;
+}
+.topnav .menu-btn:hover { background: #f0f0f0; border-color: #bbb; }
+.layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
+@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
+.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+.card h2 { margin: 0 0 12px; font-size: 18px; }
+.card h3 { margin: 0 0 8px; font-size: 15px; color: #555; }
+button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
+.btn-primary { background: #1890ff; color: #fff; }
+.btn-primary:hover { background: #40a9ff; }
+.btn-primary:disabled { background: #91d5ff; cursor: not-allowed; }
+.btn-default { background: #f0f0f0; color: #333; }
+.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
+.hit-item { padding: 8px 12px; margin: 4px 0; border-radius: 4px; }
+.hit-fail { background: #fff2f0; border-left: 3px solid #ff4d4f; }
+.hit-pass { background: #f6ffed; border-left: 3px solid #52c41a; }
+.hit-item small { color: #999; display: block; margin-top: 2px; }
+.status-bar { display: flex; gap: 20px; padding: 12px; background: #fafafa; border-radius: 4px; margin-bottom: 16px; }
+.status-item { text-align: center; }
+.status-item .num { font-size: 24px; font-weight: bold; }
+.status-item .label { font-size: 12px; color: #999; }
+.scanning { display: none; text-align: center; padding: 40px; }
+.scanning .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid #f0f0f0; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.side textarea {
+  width: 100%; min-height: 180px; box-sizing: border-box;
+  padding: 10px; border: 1px solid #d9d9d9; border-radius: 4px;
+  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5; resize: vertical;
+}
+.side .hint { color: #999; font-size: 12px; margin: 0 0 8px; }
+.side .meta { color: #666; font-size: 12px; margin-top: 6px; min-height: 18px; }
+.side .editor { margin-bottom: 16px; }
+.side .editor:last-child { margin-bottom: 0; }
+.side .editor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
+.cookie-meta {
+  margin-top: 8px; padding: 10px 12px; border-radius: 4px;
+  background: #fafafa; border: 1px solid #f0f0f0; color: #666; font-size: 13px;
+}
+.cookie-help img {
+  display: block; width: 100%; max-width: 1100px; height: auto;
+  margin: 12px auto 0; border: 1px solid #f0f0f0; border-radius: 4px;
+}
+.cookie-help .steps { color: #666; font-size: 13px; line-height: 1.7; margin: 0; }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <div class="brand">广告极限词扫描</div>
+  <button type="button" class="menu-btn" id="btnHoutai">返回后台</button>
+  <button type="button" class="menu-btn" id="btnHome">返回公司主页</button>
+</nav>
+<div class="layout">
+  <div class="main">
+    <div class="card">
+      <h2>广告极限词扫描</h2>
+      <p style="color:#666;margin:0 0 12px">
+        <b>推荐流程</b>：下载本机客户端抓详情并上传 → 再点「开始扫描」（只扫本地资料，不访问淘宝）。<br>
+        <b>开始扫描</b>：始终扫 <code>file/goods.md</code>。<br>
+        <span style="color:#b36b00">服务器「重新扫描」易被淘宝风控，仅作备用。</span>
+      </p>
+
+      <div class="card" id="clientCard" style="margin:0 0 14px;padding:14px;background:#f7fbff;box-shadow:none;border:1px solid #d6e8ff">
+        <h3 style="margin:0 0 8px;font-size:16px">本机抓取客户端（抗风控）</h3>
+        <p id="clientNote" style="color:#666;font-size:13px;margin:0 0 8px">抓取走您电脑出口；Cookie 只存本机，不上传服务器。</p>
+        <ol id="clientSteps" style="color:#555;font-size:13px;margin:0 0 10px;padding-left:20px;line-height:1.7"></ol>
+        <div class="toolbar" style="margin:0">
+          <a class="btn-primary" id="btnClientDl" href="#" style="text-decoration:none;display:inline-block">下载客户端</a>
+          <span id="clientMeta" style="color:#999;font-size:12px"></span>
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
+        <label style="color:#666;font-size:13px;white-space:nowrap">已保存店铺</label>
+        <select id="shopSelect"
+          style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:14px">
+          <option value="">— 暂无，请先用商品链接添加 —</option>
+        </select>
+        <button class="btn-default" type="button" onclick="removeSelectedShop()" title="从列表删除">删除</button>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <input type="text" id="shopUrl" placeholder="新店：粘贴任一商品链接 → 点「加入店铺」（抓取请用本机客户端）"
+          style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;font-size:14px">
+        <button class="btn-default" type="button" id="btnAddShop" onclick="addShopFromUrl()">加入店铺</button>
+        <button class="btn-primary" id="btnShopScan" onclick="startShopScan(false)">开始扫描</button>
+        <button class="btn-default" id="btnRescan" onclick="startShopScan(true)" title="服务器抓淘宝，易被风控">服务器抓取（不推荐）</button>
+      </div>
+      <div class="toolbar" style="margin-top:12px">
+        <label><input type="checkbox" id="shopOcr" checked> OCR 图片（服务器抓取/客户端上传时）</label>
+        <label><input type="checkbox" id="shopLlm" checked> LLM 判定</label>
+        <label>上限 <input type="number" id="shopMax" value="0" min="0" max="9999" style="width:70px;padding:4px"> 个</label>
+        <span style="color:#999;font-size:12px">0 = 全部（扫多少写多少）</span>
+      </div>
+      <div id="goodsStatus" style="color:#666;font-size:13px;margin-top:4px"></div>
+      <div class="toolbar" style="align-items:flex-start">
+        <textarea id="shopCookie" placeholder="可粘贴：① Cookie 整串  ② 一条或多条 Copy as cURL（程序自动提取 -b / Cookie 并择优）。不要只贴商品链接。"
+          style="flex:1;min-height:88px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;font-family:monospace"></textarea>
+        <button class="btn-default" onclick="saveCookie()">识别并保存</button>
+      </div>
+      <div id="cookieStatus" style="color:#666;font-size:13px;margin-top:4px"></div>
+      <div id="cookiePick" class="cookie-meta" style="display:none"></div>
+      <div id="cookieMeta" class="cookie-meta" style="display:none"></div>
+      <div id="shopProgress" style="color:#666;font-size:13px;margin-top:8px;display:none"></div>
+    </div>
+
+    <div class="card" id="resultCard" style="display:none">
+      <h2>扫描结果</h2>
+      <div id="statusBar" class="status-bar"></div>
+      <div id="scanning" class="scanning">
+        <div class="spinner"></div>
+        <p style="margin-top:12px;color:#666">正在扫描，请稍候...</p>
+      </div>
+      <div id="resultContent"></div>
+    </div>
+  </div>
+
+  <div class="side card">
+    <h2>词表（在线编辑）</h2>
+    <p class="hint">用空格或换行分隔词语（不要用 /）。保存只写文件，不会自动扫；改完后请再点左侧「开始扫描」。</p>
+
+    <div class="editor">
+      <div class="editor-head">
+        <h3>极限词 · absolute_words.md</h3>
+        <button class="btn-primary" id="btnSaveLimit" onclick="saveFile('limit')">保存</button>
+      </div>
+      <textarea id="limitText" spellcheck="false"></textarea>
+      <div class="meta" id="limitMeta"></div>
+    </div>
+
+    <div class="editor">
+      <div class="editor-head">
+        <h3>错误描述 · wrong_word.md</h3>
+        <button class="btn-primary" id="btnSaveWrong" onclick="saveFile('wrong')">保存</button>
+      </div>
+      <textarea id="wrongText" spellcheck="false"></textarea>
+      <div class="meta" id="wrongMeta"></div>
+    </div>
+  </div>
+</div>
+
+<div class="card cookie-help" id="cookieHelp">
+  <h2>如何更新 Cookie</h2>
+  <p class="steps">
+    <b>日常抓取请用本机客户端</b>（Cookie 留在您电脑）。<br>
+    下方服务器 Cookie 仅用于「加入店铺 / 服务器抓取备用」：<br>
+    1. 登录淘宝并打开 <b>www.taobao.com</b> → 按 <b>F12</b> → 点 <b>Network</b><br>
+    2. 点筛选 <b>Doc</b> → 右键 → <b>Copy</b> → <b>Copy all listed as cURL (bash)</b><br>
+    3. 粘贴到上方 Cookie 框 →「识别并保存」
+  </p>
+  <img src="how-to-update-cookie.png?v=2" alt="如何更新 Cookie：F12 → Network → Doc → Copy all listed as cURL (bash)">
+</div>
+
+<script src="/shared/ui.js"></script>
+<script>
+const API_BASE = '/absolute/api';
+
+function escapeHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+async function loadFiles() {
+  try {
+    const r = await fetch(API_BASE + '/files');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '加载失败');
+    document.getElementById('limitText').value = (d.limit && d.limit.content) || '';
+    document.getElementById('wrongText').value = (d.wrong && d.wrong.content) || '';
+    setMeta('limit', d.limit);
+    setMeta('wrong', d.wrong);
+  } catch (e) {
+    document.getElementById('limitMeta').textContent = '加载失败: ' + e.message;
+    document.getElementById('wrongMeta').textContent = '加载失败: ' + e.message;
+  }
+}
+
+function setMeta(key, info) {
+  const el = document.getElementById(key + 'Meta');
+  if (!info) { el.textContent = ''; return; }
+  el.textContent = `共 ${info.count || 0} 个词` + (info.words && info.words.length
+    ? '：' + info.words.slice(0, 20).join(' ') + (info.words.length > 20 ? ' …' : '')
+    : '');
+}
+
+async function saveFile(key) {
+  const btn = document.getElementById(key === 'limit' ? 'btnSaveLimit' : 'btnSaveWrong');
+  const meta = document.getElementById(key + 'Meta');
+  const content = document.getElementById(key === 'limit' ? 'limitText' : 'wrongText').value;
+  btn.disabled = true;
+  meta.textContent = '保存中...';
+  try {
+    const r = await fetch(API_BASE + '/files/' + key, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content })
+    });
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '保存失败');
+    setMeta(key, d);
+    meta.textContent = '已保存 · ' + meta.textContent + ' · 请再点「开始扫描」才会按新词表检测';
+    const bar = document.getElementById('statusBar');
+    if (bar && bar.innerHTML) {
+      bar.insertAdjacentHTML('beforeend',
+        '<div class="status-item" style="flex:1 1 100%"><div class="label" style="color:#fa8c16">词表已更新，当前结果是旧的，请重新「开始扫描」</div></div>');
+    }
+  } catch (e) {
+    meta.textContent = '保存失败: ' + e.message;
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+function renderCookieStatus(d) {
+  const el = document.getElementById('cookieStatus');
+  const meta = document.getElementById('cookieMeta');
+  const pick = document.getElementById('cookiePick');
+  if (d && d.valid) {
+    el.style.color = d.warn ? '#fa8c16' : '#52c41a';
+    el.textContent = 'Cookie 已保存（' + (d.keys || 0) + ' 项' +
+      (d.has_h5_tk ? '，含 _m_h5_tk' : '，将自动补 _m_h5_tk') +
+      (d.score != null ? '，得分 ' + d.score : '') + '）' +
+      (d.warn ? ' · ' + d.warn : '');
+    if (pick) {
+      const cands = d.candidates || [];
+      let html = '';
+      if (d.candidates_count > 1 || (d.source || d.host)) {
+        html += '自动择优：' + escapeHtml(d.pick_method || 'rules') +
+          (d.host ? ' · 来源 ' + escapeHtml(d.host) : '') +
+          (d.source ? ' · ' + escapeHtml(d.source) : '');
+        if (d.llm_note) html += '<br>LLM：' + escapeHtml(d.llm_note);
+      }
+      if (cands.length > 1) {
+        html += '<br>候选对比：' + cands.map(c => {
+          const mark = c.selected ? '✓' : '·';
+          return mark + '#' + c.index + ' 分' + c.score +
+            (c.host ? '(' + c.host + ')' : '') +
+            ' uc1=' + c.uc1_len;
+        }).join('　');
+      }
+      if (d.reasons && d.reasons.length) {
+        html += '<br>规则得分：' + escapeHtml(d.reasons.slice(0, 8).join('；'));
+      }
+      if (d.rules && d.rules.length) {
+        html += '<br><span style="color:#999">判断规则：' + escapeHtml(d.rules.join(' / ')) + '</span>';
+      }
+      pick.style.display = html ? 'block' : 'none';
+      pick.innerHTML = html;
+    }
+    if (meta) {
+      const saved = d.saved_at
+        ? new Date(d.saved_at * 1000).toLocaleString('zh-CN', { hour12: false })
+        : '未知';
+      meta.style.display = 'block';
+      meta.textContent = '服务器保存于 ' + saved +
+        '。可粘贴多条 curl，程序按规则（必要时 LLM）自动选完整 Cookie；失效以抓取失败为准。';
+    }
+  } else {
+    el.style.color = '#ff4d4f';
+    el.textContent = (d && d.error) ? d.error : '未配置有效 Cookie，无法抓取商品详情';
+    if (meta) meta.style.display = 'none';
+    if (pick) { pick.style.display = 'none'; pick.innerHTML = ''; }
+  }
+}
+
+async function loadGoodsStatus() {
+  try {
+    const r = await fetch(API_BASE + '/goods');
+    const d = await r.json();
+    const el = document.getElementById('goodsStatus');
+    if (d.count > 0) {
+      el.textContent = `已缓存 ${d.count} 个商品资料（file/goods.md），开始扫描将复用`;
+    } else {
+      el.textContent = '尚无商品缓存，首次扫描会写入 file/goods.md';
+    }
+  } catch (e) {}
+}
+
+async function loadShops() {
+  const sel = document.getElementById('shopSelect');
+  if (!sel) return;
+  const prev = sel.value;
+  try {
+    const r = await fetch(API_BASE + '/shops');
+    const d = await r.json();
+    const shops = d.shops || [];
+    sel.innerHTML = '';
+    const opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = shops.length
+      ? '— 选择已保存店铺（重扫不必再贴链接）—'
+      : '— 暂无，请先用商品链接添加 —';
+    sel.appendChild(opt0);
+    for (const s of shops) {
+      const opt = document.createElement('option');
+      opt.value = s.shop_id;
+      opt.textContent = s.shop_name || s.shop_id;
+      sel.appendChild(opt);
+    }
+    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
+  } catch (e) {}
+}
+
+async function removeSelectedShop() {
+  const sel = document.getElementById('shopSelect');
+  const shopId = sel.value;
+  if (!shopId) { alert('请先选择要删除的店铺'); return; }
+  const name = sel.options[sel.selectedIndex].textContent;
+  if (!confirm('从列表删除「' + name + '」？不会删除 goods.md')) return;
+  try {
+    const r = await fetch(API_BASE + '/shops/delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shop_id: shopId })
+    });
+    const d = await r.json();
+    if (d.error) throw new Error(d.error);
+    await loadShops();
+  } catch (e) {
+    alert('删除失败: ' + e.message);
+  }
+}
+
+async function addShopFromUrl() {
+  const url = document.getElementById('shopUrl').value.trim();
+  if (!url) { alert('请先粘贴商品链接'); return; }
+  const btn = document.getElementById('btnAddShop');
+  btn.disabled = true;
+  try {
+    const r = await fetch(API_BASE + '/shops/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url })
+    });
+    const d = await r.json();
+    if (d.error || !d.ok) throw new Error(d.error || '加入失败');
+    await loadShops();
+    const sel = document.getElementById('shopSelect');
+    if (d.shop && d.shop.shop_id) sel.value = d.shop.shop_id;
+    alert('已加入店铺「' + (d.shop && d.shop.shop_name ? d.shop.shop_name : d.shop.shop_id) + '」');
+  } catch (e) {
+    alert('加入店铺失败: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+(async function() {
+  try {
+    const r = await fetch(API_BASE + '/cookie');
+    renderCookieStatus(await r.json());
+  } catch (e) {}
+  // 导航链接 + 默认上限从 config.ini 读取
+  try {
+    const ur = await fetch(API_BASE + '/ui');
+    const ui = await ur.json();
+    const houtai = ui.houtai_url || '/houtai/';
+    const home = ui.home_url || 'https://www.imocfood.com';
+    document.getElementById('btnHoutai').onclick = () => { location.href = houtai; };
+    document.getElementById('btnHome').onclick = () => { window.open(home, '_blank'); };
+  } catch (e) {
+    document.getElementById('btnHoutai').onclick = () => { location.href = '/houtai/'; };
+    document.getElementById('btnHome').onclick = () => { window.open('https://www.imocfood.com', '_blank'); };
+  }
+  try {
+    const cr = await fetch(API_BASE + '/config');
+    const txt = await cr.text();
+    const m = txt.match(/^\s*default_max_items\s*=\s*(\d+)/m);
+    if (m) document.getElementById('shopMax').value = m[1];
+  } catch (e) {}
+  loadFiles();
+  loadGoodsStatus();
+  loadShops();
+  loadClientInfo();
+})();
+
+async function loadClientInfo() {
+  const stepsEl = document.getElementById('clientSteps');
+  const metaEl = document.getElementById('clientMeta');
+  const noteEl = document.getElementById('clientNote');
+  const btn = document.getElementById('btnClientDl');
+  try {
+    const r = await fetch(API_BASE + '/client/info');
+    const d = await r.json();
+    if (!d.ok) throw new Error(d.error || '加载失败');
+    if (d.note) noteEl.textContent = d.note;
+    stepsEl.innerHTML = (d.steps || []).map(s => '<li>' + escapeHtml(s) + '</li>').join('');
+    const href = d.preferred_download
+      ? ('/absolute/' + d.preferred_download)
+      : '#';
+    btn.href = href;
+    btn.setAttribute('download', '');
+    if (!d.preferred_download) {
+      btn.textContent = '暂无下载包';
+      btn.onclick = (e) => { e.preventDefault(); alert('请管理员运行 build_client.sh'); };
+    } else {
+      const name = d.preferred_download.split('/').pop();
+      btn.textContent = '下载 ' + name;
+      const size = (d.files || []).find(f => d.preferred_download.endsWith(f.name));
+      const mb = size ? (size.size / 1048576).toFixed(1) + ' MB' : '';
+      metaEl.textContent = 'v' + (d.version || '') + (mb ? ' · ' + mb : '')
+        + ' · 解压后运行「绝对词抓取客户端.bat」';
+    }
+  } catch (e) {
+    metaEl.textContent = '客户端信息加载失败: ' + e.message;
+  }
+}
+
+async function saveCookie() {
+  const cookie = document.getElementById('shopCookie').value.trim();
+  if (!cookie) { alert('请先粘贴 Cookie 或整段 curl（可多条）'); return; }
+  // 允许 curl/多段；仅拒绝「只有一条商品 URL」
+  if (/^https?:\/\/\S+$/i.test(cookie) && !/curl/i.test(cookie) && cookie.indexOf('cookie2=') < 0) {
+    renderCookieStatus({ valid: false, error: '你粘贴的是商品链接。请粘贴 Cookie 或 Copy as cURL' });
+    return;
+  }
+  const el = document.getElementById('cookieStatus');
+  el.style.color = '#666';
+  el.textContent = '正在识别并择优…';
+  try {
+    const r = await fetch(API_BASE + '/cookie', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ cookie, use_llm: true })
+    });
+    const d = await r.json();
+    renderCookieStatus(d);
+    if (d.valid) document.getElementById('shopCookie').value = '';
+  } catch (e) {
+    renderCookieStatus({ valid: false, error: '保存失败: ' + e.message });
+  }
+}
+
+async function startShopScan(forceRescan) {
+  const url = document.getElementById('shopUrl').value.trim();
+  const shopId = document.getElementById('shopSelect').value.trim();
+  if (forceRescan && !url && !shopId) {
+    alert('重新扫描请选择已保存店铺，或粘贴商品/店铺链接');
+    return;
+  }
+  const btnScan = document.getElementById('btnShopScan');
+  const btnRescan = document.getElementById('btnRescan');
+  btnScan.disabled = true;
+  btnRescan.disabled = true;
+  document.getElementById('shopProgress').style.display = 'block';
+  document.getElementById('shopProgress').textContent = forceRescan
+    ? (shopId ? '按已选店铺重新抓取淘宝...' : '用链接解析店铺并重新抓取...')
+    : '从 goods.md 扫描全部缓存商品...';
+  document.getElementById('resultCard').style.display = 'block';
+  document.getElementById('scanning').style.display = 'block';
+  document.getElementById('resultContent').innerHTML = '';
+  document.getElementById('statusBar').innerHTML = '';
+
+  try {
+    const r = await fetch(API_BASE + '/scan/shop', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        // 重扫：有商品/店铺链接时以链接为准（避免下拉旧店盖住新链接）；否则用下拉店铺
+        // 开始扫描：忽略链接与店铺，只扫 goods.md
+        url: forceRescan ? url : '',
+        shop_id: forceRescan ? (url ? '' : shopId) : '',
+        ocr: document.getElementById('shopOcr').checked,
+        llm: document.getElementById('shopLlm').checked,
+        max_items: parseInt(document.getElementById('shopMax').value) || 0,
+        force_rescan: !!forceRescan
+      })
+    });
+    const d = await r.json();
+    if (d.error || !d.task_id) throw new Error(d.error || '任务创建失败');
+
+    const taskId = d.task_id;
+    let task = null;
+    for (let i = 0; i < 1200; i++) {
+      await new Promise(res => setTimeout(res, 2000));
+      const sr = await fetch(API_BASE + '/scan/status?task_id=' + taskId);
+      task = await sr.json();
+      if (task.error && task.status === 'error') throw new Error(task.error);
+      const pct = task.total > 0 ? Math.round(task.current / task.total * 100) : 0;
+      document.getElementById('shopProgress').innerHTML =
+        `扫描进度: <b>${task.current} / ${task.total}</b> (${pct}%)` +
+        (task.current_title ? `<br>正在扫描: ${escapeHtml(task.current_title)}` : '');
+      // 重扫时店铺在解析成功后就会写入，轮询中刷新下拉（不必等扫完）
+      if (forceRescan && i % 2 === 0) loadShops();
+      if (task.status === 'done') break;
+      if (task.status === 'error') throw new Error(task.error || '扫描失败');
+    }
+    if (!task || task.status !== 'done') throw new Error('扫描超时，请稍后查看');
+    document.getElementById('scanning').style.display = 'none';
+    renderShopResult(task);
+    loadGoodsStatus();
+    loadShops();
+  } catch (e) {
+    document.getElementById('scanning').style.display = 'none';
+    document.getElementById('resultContent').innerHTML =
+      '<p style="color:red">扫描失败: ' + escapeHtml(e.message) + '</p>';
+  } finally {
+    btnScan.disabled = false;
+    btnRescan.disabled = false;
+    document.getElementById('shopProgress').style.display = 'none';
+  }
+}
+
+function renderShopResult(d) {
+  const results = d.results || [];
+  const hitItems = results.filter(r => r.hits && r.hits.length > 0);
+  const failItems = hitItems.filter(r => r.judge && r.judge.includes('"violate": true'));
+  const fetchFail = results.filter(r => r.error || !(r.title && r.title !== r.id));
+  let limitHitItems = 0, wrongHitItems = 0;
+  for (const r of hitItems) {
+    const cats = new Set((r.hits || []).map(h => h.category || ''));
+    if (cats.has('极限词')) limitHitItems++;
+    if (cats.has('错误描述')) wrongHitItems++;
+  }
+
+  document.getElementById('statusBar').innerHTML = `
+    <div class="status-item"><div class="num">${d.total || 0}</div><div class="label">${d.mode === 'shop' ? '店铺商品' : '商品数'}</div></div>
+    <div class="status-item"><div class="num">${d.scanned || results.length}</div><div class="label">已扫描</div></div>
+    <div class="status-item"><div class="num" style="color:${limitHitItems ? '#ff4d4f' : '#52c41a'}">${limitHitItems}</div><div class="label">极限词命中</div></div>
+    <div class="status-item"><div class="num" style="color:${wrongHitItems ? '#ff4d4f' : '#52c41a'}">${wrongHitItems}</div><div class="label">错误描述命中</div></div>
+    <div class="status-item"><div class="num" style="color:${failItems.length ? '#ff4d4f' : '#52c41a'}">${failItems.length}</div><div class="label">LLM 判违规</div></div>
+  `;
+
+  let html = '';
+  if (d.notice) html += '<p style="color:#fa8c16">' + escapeHtml(d.notice) + '</p>';
+  if (typeof d.cached === 'number' || typeof d.fetched === 'number') {
+    html += `<p style="color:#666">资料：缓存 ${d.cached || 0} / 新抓 ${d.fetched || 0}` +
+      (d.goods_file ? `，已写入 goods.md` : '') + '</p>';
+  }
+  if (fetchFail.length) {
+    html += `<p style="color:#ff4d4f">有 ${fetchFail.length} 个商品详情抓取失败（多半是 Cookie 无效/过期或淘宝风控）。失败时标题拿不到，词表结果不可信。</p>`;
+    html += fetchFail.slice(0, 5).map(r =>
+      `<div class="hit-item hit-fail"><b>${escapeHtml(r.id)}</b><small>${escapeHtml(r.error || '无标题')}</small></div>`
+    ).join('');
+  }
+  if (!hitItems.length) {
+    if (!fetchFail.length) {
+      html += '<p style="color:#52c41a">未发现极限词 / 错误描述命中</p>';
+    }
+    document.getElementById('resultContent').innerHTML = html;
+    return;
+  }
+  for (const r of hitItems) {
+    const violated = r.judge && r.judge.includes('"violate": true');
+    const idx = r.index != null ? r.index + '. ' : '';
+    html += `<div class="hit-item ${violated ? 'hit-fail' : 'hit-pass'}">
+      <b>${escapeHtml(idx + (r.title || r.id))}</b>
+      <small><a href="${escapeHtml(r.url)}" target="_blank">${escapeHtml(r.url)}</a></small>
+      ${(r.hits || []).map(h =>
+        `<div>【${escapeHtml(h.category || '词表')}/${escapeHtml(h.source)}】命中「${escapeHtml(h.keyword)}」
+         <span style="color:#999">${escapeHtml(h.context)}</span></div>`
+      ).join('')}
+      ${r.judge ? `<small style="color:${violated ? '#ff4d4f' : '#52c41a'}">LLM: ${escapeHtml(r.judge)}</small>` : ''}
+    </div>`;
+  }
+  // 完整清单（含未命中），方便核对是否扫齐
+  const allList = results.map(r => {
+    const idx = r.index != null ? r.index : '?';
+    const hit = (r.hits && r.hits.length) ? `命中${r.hits.length}` : '无命中';
+    return `${idx}. ${r.title || r.id}（${hit}）`;
+  });
+  if (allList.length) {
+    html += '<div style="margin-top:16px;padding:12px;background:#fafafa;border-radius:4px">' +
+      `<div style="font-weight:bold;margin-bottom:6px">扫描清单 ${results.length} 个</div>` +
+      '<pre style="margin:0;white-space:pre-wrap;font-size:12px;line-height:1.6">' +
+      escapeHtml(allList.join('\n')) + '</pre></div>';
+  }
+  document.getElementById('resultContent').innerHTML = html;
+}
+</script>
+</body>
+</html>
