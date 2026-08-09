@@ -12,8 +12,20 @@
 
 ## 本机开发（Windows）
 
+### Clone（推荐：从服务器 SSH）
+
 ```powershell
-cd D:\project\absolute_term
+mkdir D:\project -Force
+cd D:\project
+git clone ssh://admin@leedreamer.cn/home/project/repos/absolute_term.git absolute_term
+cd absolute_term
+```
+
+（GitHub 独立仓库建好后也可：`git clone git@github.com:leedreamer4gmail/absolute_term.git`）
+
+### 跑客户端（源码即可，安装包以后再做）
+
+```powershell
 python -m pip install -r requirements.txt
 python client\app.py
 ```
