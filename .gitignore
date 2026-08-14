@@ -16,3 +16,8 @@ config.ini.local
 .env
 .venv/
 venv/
+
+# 密钥与本地配置
+config.ini
+*.ini.local
+.env
