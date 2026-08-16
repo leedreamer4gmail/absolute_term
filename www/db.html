@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>数据库 · 小李的电商扫描器</title>
+<link rel="stylesheet" href="/shared/ui.css">
+<style>
+:root {
+  --bg: #12141A; --panel: #16181F; --border: #2E3340;
+  --text: #EDEDEF; --muted: #8A8F98; --title: #9AA3E8; --acc: #5E6AD2;
+}
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+  font: 13px/1.5 "Microsoft YaHei UI", "Segoe UI", sans-serif; }
+.top { display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  border-bottom: 1px solid var(--border); }
+.top h1 { margin: 0; font-size: 16px; color: var(--title); font-weight: 600; }
+.hint { color: var(--muted); }
+.layout { display: flex; height: calc(100% - 44px); }
+.side { width: 220px; border-right: 1px solid var(--border); overflow: auto; padding: 8px; }
+.main { flex: 1; overflow: auto; padding: 8px 12px; }
+.tbl-btn { display: block; width: 100%; text-align: left; margin: 0 0 4px;
+  background: transparent; color: var(--text); border: 1px solid transparent;
+  border-radius: 4px; padding: 6px 8px; cursor: pointer; }
+.tbl-btn:hover, .tbl-btn.active { border-color: var(--acc); background: #1c2030; }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { border: 1px solid var(--border); padding: 4px 6px; vertical-align: top;
+  max-width: 280px; word-break: break-all; }
+th { background: #1a1d28; color: var(--title); position: sticky; top: 0; }
+.pager { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
+button.nav { background: var(--acc); color: #fff; border: 0; border-radius: 4px;
+  padding: 4px 10px; cursor: pointer; }
+.err { color: #e07070; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>数据库</h1>
+  <span class="hint" id="who">校验登录…</span>
+  <a href="index.html" style="margin-left:auto;color:var(--title)">回主页</a>
+</div>
+<div class="layout">
+  <div class="side" id="tables"></div>
+  <div class="main">
+    <div id="meta" class="hint"></div>
+    <div class="pager" id="pager" style="display:none">
+      <button class="nav" type="button" id="btnPrev">上一页</button>
+      <span id="pageInfo"></span>
+      <button class="nav" type="button" id="btnNext">下一页</button>
+    </div>
+    <div id="grid"></div>
+  </div>
+</div>
+<script>
+const API_BASE = location.pathname.indexOf('/absolute_term') === 0
+  ? '/absolute_term/api' : '/absolute/api';
+const TOKEN_KEY = 'absolute_term_token';
+const LIMIT = 50;
+let tableName = '';
+let offset = 0;
+let total = 0;
+
+function token() { return localStorage.getItem(TOKEN_KEY) || ''; }
+async function api(path) {
+  const r = await fetch(API_BASE + path, {
+    headers: { Authorization: 'Bearer ' + token() }
+  });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
+function esc(s) {
+  const d = document.createElement('div');
+  d.textContent = s == null ? '' : String(s);
+  return d.innerHTML;
+}
+
+async function boot() {
+  const who = document.getElementById('who');
+  try {
+    const me = await api('/me');
+    if (!me.is_admin) throw new Error('仅管理员可打开数据库');
+    who.textContent = me.username + ' · 只读浏览';
+    const d = await api('/admin/db/tables');
+    const box = document.getElementById('tables');
+    (d.tables || []).forEach(t => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'tbl-btn';
+      b.textContent = t.name + ' (' + t.count + ')';
+      b.onclick = () => loadTable(t.name, 0, b);
+      box.appendChild(b);
+    });
+    if ((d.tables || []).length) box.firstChild.click();
+  } catch (e) {
+    who.className = 'err';
+    who.textContent = e.message || String(e);
+  }
+}
+
+async function loadTable(name, off, btn) {
+  tableName = name;
+  offset = off;
+  document.querySelectorAll('.tbl-btn').forEach(x => x.classList.remove('active'));
+  if (btn) btn.classList.add('active');
+  const meta = document.getElementById('meta');
+  const grid = document.getElementById('grid');
+  meta.textContent = '加载 ' + name + ' …';
+  try {
+    const d = await api('/admin/db/rows?table=' + encodeURIComponent(name)
+      + '&limit=' + LIMIT + '&offset=' + off);
+    total = Number(d.total || 0);
+    offset = Number(d.offset || 0);
+    meta.textContent = name + ' · 共 ' + total + ' 行（长文本已截断，密码/Cookie 已打码）';
+    document.getElementById('pager').style.display = total > LIMIT ? 'flex' : 'none';
+    document.getElementById('pageInfo').textContent =
+      (offset + 1) + '–' + Math.min(offset + LIMIT, total) + ' / ' + total;
+    const cols = d.columns || [];
+    const rows = d.rows || [];
+    let html = '<table><thead><tr>' + cols.map(c => '<th>' + esc(c) + '</th>').join('') + '</tr></thead><tbody>';
+    rows.forEach(row => {
+      html += '<tr>' + cols.map(c => {
+        const v = row[c];
+        const s = v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : String(v));
+        return '<td>' + esc(s) + '</td>';
+      }).join('') + '</tr>';
+    });
+    html += '</tbody></table>';
+    grid.innerHTML = html || '<p class="hint">空表</p>';
+  } catch (e) {
+    meta.className = 'err';
+    meta.textContent = e.message || String(e);
+    grid.innerHTML = '';
+  }
+}
+document.getElementById('btnPrev').onclick = () => {
+  if (offset <= 0) return;
+  loadTable(tableName, Math.max(0, offset - LIMIT));
+};
+document.getElementById('btnNext').onclick = () => {
+  if (offset + LIMIT >= total) return;
+  loadTable(tableName, offset + LIMIT);
+};
+boot();
+</script>
+</body>
+</html>

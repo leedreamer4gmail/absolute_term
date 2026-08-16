@@ -3,589 +3,1701 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>广告极限词扫描</title>
+<title>小李的电商扫描器</title>
+<link rel="icon" type="image/png" href="img/logox.png">
 <link rel="stylesheet" href="/shared/ui.css">
 <style>
-body { max-width: 1400px; margin: 0 auto; padding: 20px; }
+/* 配色对齐 livestream cinema；排版用 Excel 密度（小字号、紧凑网格） */
+:root {
+  --bg: #12141A;
+  --panel: #16181F;
+  --input: #1E222D;
+  --hover: #262B38;
+  --select: #2F3558;
+  --border: #2E3340;
+  --border2: #3F4656;
+  --text: #EDEDEF;
+  --bright: #F7F7F8;
+  --dim: #C4C7CE;
+  --muted: #8A8F98;
+  --acc: #5E6AD2;
+  --acc-hover: #7279DB;
+  --ok: #34D399;
+  --err: #E87878;
+  --title: #9AA3E8;
+  --btn: #222633;
+  --plug: #2A3144;
+  --plug-edge: #343C52;
+  --grid: #2E3340;
+  --grid-head: #1A1D27;
+  --row-alt: #14161C;
+  --row-hover: #262B38;
+  --font: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
+  --mono: Consolas, "Sarasa Mono SC", monospace;
+  --shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+*, *::before, *::after { box-sizing: border-box; }
+body {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  font-family: var(--font);
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--text);
+  background:
+    radial-gradient(1200px 600px at 12% -10%, rgba(94, 106, 210, 0.14), transparent 55%),
+    radial-gradient(900px 500px at 88% 0%, rgba(52, 211, 153, 0.05), transparent 50%),
+    linear-gradient(180deg, #0E1016 0%, var(--bg) 40%, #10131A 100%);
+  background-attachment: fixed;
+  min-height: 100vh;
+}
 .topnav {
-  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-  margin-bottom: 16px; padding: 10px 14px;
-  background: #fff; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 8px; padding: 6px 8px;
+  background: var(--plug);
+  border: 1px solid var(--plug-edge);
+  border-radius: 4px;
+  box-shadow: var(--shadow);
+  min-height: 36px;
 }
-.topnav .brand { font-weight: 600; font-size: 15px; margin-right: auto; color: #333; }
-.topnav .menu-btn {
-  padding: 6px 12px; border: 1px solid #d9d9d9; border-radius: 4px;
-  background: #fafafa; color: #333; cursor: pointer; font-size: 13px;
+.topnav .brand {
+  display: flex; align-items: center; gap: 6px;
+  font-weight: 600; font-size: 12px; color: var(--bright);
 }
-.topnav .menu-btn:hover { background: #f0f0f0; border-color: #bbb; }
-.layout { display: grid; grid-template-columns: 1fr 380px; gap: 16px; align-items: start; }
-@media (max-width: 960px) { .layout { grid-template-columns: 1fr; } }
-.card { background: #fff; border-radius: 8px; padding: 20px; margin-bottom: 16px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
-.card h2 { margin: 0 0 12px; font-size: 18px; }
-.card h3 { margin: 0 0 8px; font-size: 15px; color: #555; }
-button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 14px; }
-.btn-primary { background: #1890ff; color: #fff; }
-.btn-primary:hover { background: #40a9ff; }
-.btn-primary:disabled { background: #91d5ff; cursor: not-allowed; }
-.btn-default { background: #f0f0f0; color: #333; }
-.toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
-label { display: flex; align-items: center; gap: 6px; cursor: pointer; }
-.hit-item { padding: 8px 12px; margin: 4px 0; border-radius: 4px; }
-.hit-fail { background: #fff2f0; border-left: 3px solid #ff4d4f; }
-.hit-pass { background: #f6ffed; border-left: 3px solid #52c41a; }
-.hit-item small { color: #999; display: block; margin-top: 2px; }
-.status-bar { display: flex; gap: 20px; padding: 12px; background: #fafafa; border-radius: 4px; margin-bottom: 16px; }
-.status-item { text-align: center; }
-.status-item .num { font-size: 24px; font-weight: bold; }
-.status-item .label { font-size: 12px; color: #999; }
-.scanning { display: none; text-align: center; padding: 40px; }
-.scanning .spinner { display: inline-block; width: 40px; height: 40px; border: 3px solid #f0f0f0; border-top-color: #1890ff; border-radius: 50%; animation: spin 0.8s linear infinite; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.side textarea {
-  width: 100%; min-height: 180px; box-sizing: border-box;
-  padding: 10px; border: 1px solid #d9d9d9; border-radius: 4px;
-  font-size: 13px; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  line-height: 1.5; resize: vertical;
+.topnav .brand img { width: 22px; height: 22px; display: block; }
+.topnav .acct {
+  display: none; align-items: center; gap: 8px; flex-wrap: wrap;
+  color: var(--dim); font-size: 11px; margin-right: auto;
+  position: relative;
 }
-.side .hint { color: #999; font-size: 12px; margin: 0 0 8px; }
-.side .meta { color: #666; font-size: 12px; margin-top: 6px; min-height: 18px; }
-.side .editor { margin-bottom: 16px; }
-.side .editor:last-child { margin-bottom: 0; }
-.side .editor-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; gap: 8px; }
-.cookie-meta {
-  margin-top: 8px; padding: 10px 12px; border-radius: 4px;
-  background: #fafafa; border: 1px solid #f0f0f0; color: #666; font-size: 13px;
+.topnav .acct.is-on { display: flex; }
+.topnav .acct b { color: var(--bright); font-weight: 600; }
+.user-menu {
+  display: none; position: absolute; top: calc(100% + 4px); left: 0; z-index: 60;
+  min-width: 200px; background: var(--panel); border: 1px solid var(--border2);
+  border-radius: 4px; box-shadow: var(--shadow); padding: 6px 10px;
 }
-.cookie-help img {
-  display: block; width: 100%; max-width: 1100px; height: auto;
-  margin: 12px auto 0; border: 1px solid #f0f0f0; border-radius: 4px;
+.user-menu.open { display: block; }
+.um-row { display: flex; align-items: center; gap: 6px; padding: 5px 2px; font-size: 11px; color: var(--dim); white-space: nowrap; }
+.um-row + .um-row { border-top: 1px solid var(--border); }
+.um-label { width: 56px; flex: none; color: var(--muted); }
+.um-val { color: var(--bright); word-break: break-all; }
+.um-link { color: var(--acc); cursor: pointer; text-decoration: none; flex: none; }
+.um-link:hover { color: var(--acc-hover); }
+.um-icon { background: none; border: none; cursor: pointer; font-size: 12px; padding: 0 3px; line-height: 1; }
+.um-row input.um-input {
+  flex: none; width: 100px; background: var(--input); border: 1px solid var(--border2);
+  border-radius: 2px; color: var(--text); font-size: 11px; padding: 2px 6px;
 }
-.cookie-help .steps { color: #666; font-size: 13px; line-height: 1.7; margin: 0; }
+.um-row .um-confirm {
+  background: var(--acc); border: none; color: #fff; border-radius: 2px;
+  cursor: pointer; font-size: 11px; padding: 2px 8px;
+}
+.um-row .um-err { color: var(--err); font-size: 10px; }
+.topnav .nav-tabs { display: none; gap: 4px; align-items: center; }
+.topnav .nav-tabs.is-on { display: flex; }
+.topnav .menu-btn, .menu-btn {
+  padding: 3px 8px; border: 1px solid var(--border2); border-radius: 2px;
+  background: var(--btn); color: var(--text); cursor: pointer; font-size: 11px;
+}
+.topnav .menu-btn:hover, .menu-btn:hover { background: var(--hover); border-color: var(--acc); }
+.topnav .menu-btn.active, .auth-tab.active {
+  background: var(--select); border-color: var(--acc); color: var(--bright);
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 10px 12px;
+  box-shadow: var(--shadow);
+}
+.card h2 { margin: 0 0 8px; font-size: 13px; color: var(--title); font-weight: 600; }
+button {
+  padding: 4px 10px; border: 1px solid var(--border2); border-radius: 2px;
+  cursor: pointer; font-size: 11px; color: var(--text); background: var(--btn);
+}
+.btn-primary { background: var(--acc); color: var(--bright); border-color: var(--acc); }
+.btn-primary:hover { background: var(--acc-hover); }
+.btn-primary:disabled { opacity: 0.55; cursor: not-allowed; }
+.toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+label { display: flex; align-items: center; gap: 4px; cursor: pointer; color: var(--dim); font-size: 11px; }
+input, textarea, select {
+  padding: 2px 5px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--input);
+  color: var(--text);
+  font: inherit;
+  height: 22px;
+}
+input:focus, textarea:focus { outline: 1px solid var(--acc); border-color: var(--acc); }
+.hint, .muted { color: var(--muted); font-size: 10px; }
+.ok { color: var(--ok); }
+.err { color: var(--err); }
+.sheet {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11px;
+  font-family: var(--font);
+  background: var(--panel);
+}
+.sheet th, .sheet td {
+  padding: 2px 6px;
+  text-align: left;
+  border: 1px solid var(--grid);
+  vertical-align: middle;
+  white-space: nowrap;
+}
+.sheet th {
+  background: var(--grid-head);
+  font-weight: 600;
+  color: var(--dim);
+  position: sticky;
+  top: 0;
+}
+.sheet tbody tr:nth-child(even) { background: var(--row-alt); }
+.sheet tbody tr:hover { background: var(--row-hover); }
+.sheet a { color: var(--title); text-decoration: none; }
+.sheet a:hover { color: var(--acc-hover); text-decoration: underline; }
+.sheet .shop-name-link { font-weight: 600; cursor: pointer; }
+.sheet .shop-name-link.open { background: var(--select); color: var(--bright); }
+.goods-table { width: 100%; border-collapse: collapse; font-size: 11px; background: var(--panel); }
+.goods-table th, .goods-table td {
+  padding: 2px 6px; text-align: left; border: 1px solid var(--grid); vertical-align: top;
+  white-space: normal; color: var(--text);
+}
+.goods-table th { background: var(--grid-head); font-weight: 600; color: var(--dim); }
+.goods-table tbody tr:nth-child(even) { background: var(--row-alt); }
+.goods-table tbody tr:hover { background: var(--row-hover); }
+.goods-table a { color: var(--title); text-decoration: none; }
+.goods-table a:hover { color: var(--acc-hover); text-decoration: underline; }
+.admin-box {
+  margin: 0 0 10px;
+  padding: 8px;
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  background: #1A1D27;
+}
+.admin-box h3 { margin: 0 0 6px; font-size: 12px; color: var(--title); }
+/* 始终留滚动条槽，避免出现/消失时整页横跳 */
+html { overflow-y: scroll; }
+.dl-ico {
+  display: inline-block; width: 14px; height: 14px; vertical-align: -2px;
+  margin-right: 6px; flex-shrink: 0;
+}
+.btn-download {
+  display: inline-flex !important; align-items: center; gap: 0;
+  text-decoration: none;
+}
+
+.main-stack {
+  display: none;
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 360px;
+  position: relative;
+}
+.main-stack.is-on { display: grid; }
+/* 主页/设置叠同一格：高度取两者较大，切换不改文档流 */
+.main-pane {
+  grid-area: 1 / 1;
+  visibility: hidden;
+  pointer-events: none;
+  z-index: 0;
+  /* 隐藏时仍参与 grid 高度计算 */
+}
+.main-pane.is-on {
+  visibility: visible;
+  pointer-events: auto;
+  z-index: 1;
+}
+#loginHost { display: block; }
+#loginHost.is-off { display: none; }
+#loginStateGuest { color: var(--muted); font-size: 11px; margin-right: auto; }
+
+/* 弹窗对齐 livestream cinema */
+.ui-win {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 4px !important;
+  box-shadow: var(--shadow) !important;
+}
+.ui-win-titlebar {
+  background: var(--plug) !important;
+  border-bottom: 1px solid var(--plug-edge) !important;
+  padding: 8px 10px !important;
+}
+.ui-win-title { color: var(--bright) !important; font-size: 12px !important; }
+.ui-win-close { color: var(--muted) !important; border-radius: 2px !important; }
+.ui-win-close:hover { background: var(--err) !important; color: var(--bright) !important; }
+.ui-win-body {
+  background: var(--panel) !important;
+  color: var(--text) !important;
+  font-size: 11px !important;
+  padding: 8px 10px !important;
+}
+.ui-win-body > p { color: var(--muted) !important; }
+.ui-win-body a { color: var(--title) !important; text-decoration: none; }
+.ui-win-body a:hover { color: var(--acc-hover) !important; text-decoration: underline; }
+.ui-win-body input[type="text"],
+.ui-win-body input[type="number"],
+.ui-win-body input[type="password"],
+.ui-win-body textarea {
+  background: var(--input) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 2px !important;
+  box-shadow: none !important;
+}
+.ui-win-body input:focus,
+.ui-win-body textarea:focus {
+  border-color: var(--acc) !important;
+  box-shadow: inset 0 0 0 1px var(--acc) !important;
+  background: var(--input) !important;
+}
+.ui-win-actions {
+  background: var(--grid-head) !important;
+  border-top: 1px solid var(--border) !important;
+  padding: 8px 10px !important;
+}
+.ui-win-actions button {
+  background: var(--btn) !important;
+  color: var(--text) !important;
+  border: 1px solid var(--border2) !important;
+  border-radius: 2px !important;
+  font-size: 11px !important;
+  padding: 4px 10px !important;
+}
+.ui-win-actions button.primary {
+  background: var(--acc) !important;
+  border-color: var(--acc) !important;
+  color: var(--bright) !important;
+}
+.ui-win-actions button.ghost {
+  background: transparent !important;
+  color: var(--dim) !important;
+}
+.ui-win-actions button.ghost:hover {
+  border-color: var(--acc) !important;
+  color: var(--bright) !important;
+}
 </style>
 </head>
 <body>
 <nav class="topnav">
-  <div class="brand">广告极限词扫描</div>
-  <button type="button" class="menu-btn" id="btnHoutai">返回后台</button>
-  <button type="button" class="menu-btn" id="btnHome">返回公司主页</button>
-</nav>
-<div class="layout">
-  <div class="main">
-    <div class="card">
-      <h2>广告极限词扫描</h2>
-      <p style="color:#666;margin:0 0 12px">
-        <b>推荐流程</b>：下载本机客户端抓详情并上传 → 再点「开始扫描」（只扫本地资料，不访问淘宝）。<br>
-        <b>开始扫描</b>：始终扫 <code>file/goods.md</code>。<br>
-        <span style="color:#b36b00">服务器「重新扫描」易被淘宝风控，仅作备用。</span>
-      </p>
-
-      <div class="card" id="clientCard" style="margin:0 0 14px;padding:14px;background:#f7fbff;box-shadow:none;border:1px solid #d6e8ff">
-        <h3 style="margin:0 0 8px;font-size:16px">本机抓取客户端（抗风控）</h3>
-        <p id="clientNote" style="color:#666;font-size:13px;margin:0 0 8px">抓取走您电脑出口；Cookie 只存本机，不上传服务器。</p>
-        <ol id="clientSteps" style="color:#555;font-size:13px;margin:0 0 10px;padding-left:20px;line-height:1.7"></ol>
-        <div class="toolbar" style="margin:0">
-          <a class="btn-primary" id="btnClientDl" href="#" style="text-decoration:none;display:inline-block">下载客户端</a>
-          <span id="clientMeta" style="color:#999;font-size:12px"></span>
-        </div>
+  <div class="brand">
+    <img src="img/logo.png" alt="" width="22" height="22">
+    <span>小李的电商扫描器</span>
+  </div>
+  <span id="loginStateGuest">未登录</span>
+  <div class="acct" id="acctBar">
+    <button type="button" class="menu-btn" id="btnUserMenu">👤 <b id="userText">—</b> ▾</button>
+    <div class="user-menu" id="userMenu">
+      <div class="um-row" id="umNameRow">
+        <span class="um-label">用户名</span>
+        <span class="um-val" id="umName">—</span>
+        <button type="button" class="um-icon" id="umEdit" title="点击修改用户名">✏️</button>
       </div>
-
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:8px">
-        <label style="color:#666;font-size:13px;white-space:nowrap">已保存店铺</label>
-        <select id="shopSelect"
-          style="flex:1;min-width:200px;padding:8px 10px;border:1px solid #d9d9d9;border-radius:4px;font-size:14px">
-          <option value="">— 暂无，请先用商品链接添加 —</option>
-        </select>
-        <button class="btn-default" type="button" onclick="removeSelectedShop()" title="从列表删除">删除</button>
+      <div class="um-row">
+        <span class="um-label">余额</span>
+        <span class="um-val" id="umBal">¥0.00</span>
+        <a href="javascript:void(0)" class="um-link" id="umRecharge">[充值]</a>
       </div>
-      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
-        <input type="text" id="shopUrl" placeholder="新店：粘贴任一商品链接 → 点「加入店铺」（抓取请用本机客户端）"
-          style="flex:1;min-width:240px;padding:8px 12px;border:1px solid #d9d9d9;border-radius:4px;font-size:14px">
-        <button class="btn-default" type="button" id="btnAddShop" onclick="addShopFromUrl()">加入店铺</button>
-        <button class="btn-primary" id="btnShopScan" onclick="startShopScan(false)">开始扫描</button>
-        <button class="btn-default" id="btnRescan" onclick="startShopScan(true)" title="服务器抓淘宝，易被风控">服务器抓取（不推荐）</button>
+      <div class="um-row">
+        <span class="um-label">手机</span>
+        <span class="um-val" id="umPhone">—</span>
+        <a href="javascript:void(0)" class="um-link" id="umSetPhone" style="display:none">设置手机用以找回密码</a>
       </div>
-      <div class="toolbar" style="margin-top:12px">
-        <label><input type="checkbox" id="shopOcr" checked> OCR 图片（服务器抓取/客户端上传时）</label>
-        <label><input type="checkbox" id="shopLlm" checked> LLM 判定</label>
-        <label>上限 <input type="number" id="shopMax" value="0" min="0" max="9999" style="width:70px;padding:4px"> 个</label>
-        <span style="color:#999;font-size:12px">0 = 全部（扫多少写多少）</span>
+      <div class="um-row">
+        <span class="um-label">自动扫描</span>
+        <span class="um-val" id="umAuto">未开通</span>
+        <a href="javascript:void(0)" class="um-link" id="umAutoGo" title="开通自动扫描">[开通]</a>
       </div>
-      <div id="goodsStatus" style="color:#666;font-size:13px;margin-top:4px"></div>
-      <div class="toolbar" style="align-items:flex-start">
-        <textarea id="shopCookie" placeholder="可粘贴：① Cookie 整串  ② 一条或多条 Copy as cURL（程序自动提取 -b / Cookie 并择优）。不要只贴商品链接。"
-          style="flex:1;min-height:88px;padding:8px;border:1px solid #d9d9d9;border-radius:4px;font-size:12px;font-family:monospace"></textarea>
-        <button class="btn-default" onclick="saveCookie()">识别并保存</button>
+      <div class="um-row">
+        <span class="um-label">扫商品</span>
+        <span class="um-val" id="umFee">免费</span>
       </div>
-      <div id="cookieStatus" style="color:#666;font-size:13px;margin-top:4px"></div>
-      <div id="cookiePick" class="cookie-meta" style="display:none"></div>
-      <div id="cookieMeta" class="cookie-meta" style="display:none"></div>
-      <div id="shopProgress" style="color:#666;font-size:13px;margin-top:8px;display:none"></div>
     </div>
-
-    <div class="card" id="resultCard" style="display:none">
-      <h2>扫描结果</h2>
-      <div id="statusBar" class="status-bar"></div>
-      <div id="scanning" class="scanning">
-        <div class="spinner"></div>
-        <p style="margin-top:12px;color:#666">正在扫描，请稍候...</p>
-      </div>
-      <div id="resultContent"></div>
+    <button type="button" class="menu-btn" id="btnAdminMenu" style="display:none">⚙ 管理 ▾</button>
+    <div class="user-menu" id="adminMenu">
+      <div class="um-row"><a href="javascript:void(0)" class="um-link" id="amSettings">设置</a></div>
+      <div class="um-row"><a href="javascript:void(0)" class="um-link" id="amDb" title="新页面打开数据库">数据库</a></div>
+      <div class="um-row"><a href="javascript:void(0)" class="um-link" id="amLlm">LLM判定提示词</a></div>
+      <div class="um-row"><a href="javascript:void(0)" class="um-link" id="amSuggestions" title="查看/筛选用户提交的意见建议">意见库</a></div>
     </div>
   </div>
+  <div class="nav-tabs" id="navTabs">
+    <button type="button" class="menu-btn active" id="btnHome" data-page="home">主页</button>
+    <button type="button" class="menu-btn" id="btnPending" data-page="pending" style="display:none">待检查店铺</button>
+    <button type="button" class="menu-btn" id="btnGuide" data-page="guide">使用方法</button>
+  </div>
+  <button type="button" class="menu-btn" id="btnRecharge" style="display:none">充值</button>
+  <button type="button" class="menu-btn" id="btnLogout" style="display:none">退出</button>
+</nav>
 
-  <div class="side card">
-    <h2>词表（在线编辑）</h2>
-    <p class="hint">用空格或换行分隔词语（不要用 /）。保存只写文件，不会自动扫；改完后请再点左侧「开始扫描」。</p>
-
-    <div class="editor">
-      <div class="editor-head">
-        <h3>极限词 · absolute_words.md</h3>
-        <button class="btn-primary" id="btnSaveLimit" onclick="saveFile('limit')">保存</button>
-      </div>
-      <textarea id="limitText" spellcheck="false"></textarea>
-      <div class="meta" id="limitMeta"></div>
+<div id="loginHost">
+  <div class="card" id="loginCard">
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:8px">
+      <button type="button" class="menu-btn auth-tab active" data-tab="login">登录</button>
+      <button type="button" class="menu-btn auth-tab" data-tab="register">注册</button>
+      <button type="button" class="menu-btn auth-tab" data-tab="reset">重置密码</button>
+      <button type="button" class="menu-btn auth-tab" data-tab="recover">找回用户名</button>
     </div>
 
-    <div class="editor">
-      <div class="editor-head">
-        <h3>错误描述 · wrong_word.md</h3>
-        <button class="btn-primary" id="btnSaveWrong" onclick="saveFile('wrong')">保存</button>
+    <div id="tab-login">
+      <h2>登录</h2>
+      <div class="toolbar">
+        <label>用户名 <input id="loginUser" autocomplete="username"></label>
+        <label>密码 <input id="loginPass" type="password" autocomplete="current-password"></label>
+        <button class="btn-primary" type="button" id="btnLogin">登录</button>
+        <span id="loginMsg" class="muted"></span>
       </div>
-      <textarea id="wrongText" spellcheck="false"></textarea>
-      <div class="meta" id="wrongMeta"></div>
+      <p class="hint" style="margin:8px 0 0">本机抓取请先
+        <a id="btnDownloadClientGuest" class="btn-download" href="#" style="color:var(--title)">
+          <svg class="dl-ico" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1zm-5 11.25a.75.75 0 0 0 0 1.5h10a.75.75 0 0 0 0-1.5H3z"/></svg>
+          <span class="dl-label">下载 Windows 客户端</span>
+        </a>
+        <span id="clientVerTextGuest" class="muted"></span>
+      </p>
+      <p class="hint" style="margin:4px 0 0">SmartScreen 提示时：点「更多信息」→「仍要运行」（未代码签名时的正常拦截）。</p>
+      <p class="hint" style="margin:4px 0 0"><a href="guide.html" id="linkGuideGuest" style="color:var(--title)">如何获取 Cookie（使用方法）</a></p>
+      <p class="hint" style="margin:12px 0 0;line-height:1.65">本系统旨在帮助电商卖家自查店铺违规，规避风险，防止打架人恶意举报投诉使用，不得用于非法用途</p>
+    </div>
+
+    <div id="tab-register" style="display:none">
+      <h2>注册</h2>
+      <p class="hint" style="margin:0 0 6px">用户名必须唯一。手机号可不填；重置密码时填你记得的手机即可，不必事先绑定。</p>
+      <div class="toolbar">
+        <label>用户名 <input id="regUser"></label>
+        <label>密码 <input id="regPass" type="password"></label>
+        <label>确认密码 <input id="regPass2" type="password"></label>
+        <label>手机(可选) <input id="regPhone"></label>
+        <button class="btn-primary" type="button" id="btnRegister">注册</button>
+        <span id="regMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <div id="tab-reset" style="display:none">
+      <h2>重置密码</h2>
+      <p class="hint" style="margin:0 0 6px">填用户名和你记得的手机号。不必事先绑定。</p>
+      <div class="toolbar">
+        <label>用户名 <input id="resetUser"></label>
+        <label>手机 <input id="resetPhone"></label>
+        <label>验证码 <input id="resetCode" style="width:80px"></label>
+        <button class="menu-btn" type="button" id="btnResetSms">发验证码</button>
+        <label>新密码 <input id="resetPass" type="password"></label>
+        <button class="btn-primary" type="button" id="btnReset">重置并登录</button>
+        <span id="resetMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <div id="tab-recover" style="display:none">
+      <h2>找回用户名</h2>
+      <p class="hint" style="margin:0 0 6px">查出曾用这个手机重置或登记过的用户名。</p>
+      <div class="toolbar">
+        <label>手机 <input id="recoverPhone"></label>
+        <label>验证码 <input id="recoverCode" style="width:80px"></label>
+        <button class="menu-btn" type="button" id="btnRecoverSms">发验证码</button>
+        <button class="btn-primary" type="button" id="btnRecover">查询</button>
+        <span id="recoverMsg" class="muted"></span>
+      </div>
+      <ul id="recoverList" style="margin:8px 0 0;padding-left:16px;color:var(--muted)"></ul>
     </div>
   </div>
 </div>
 
-<div class="card cookie-help" id="cookieHelp">
-  <h2>如何更新 Cookie</h2>
-  <p class="steps">
-    <b>日常抓取请用本机客户端</b>（Cookie 留在您电脑）。<br>
-    下方服务器 Cookie 仅用于「加入店铺 / 服务器抓取备用」：<br>
-    1. 登录淘宝并打开 <b>www.taobao.com</b> → 按 <b>F12</b> → 点 <b>Network</b><br>
-    2. 点筛选 <b>Doc</b> → 右键 → <b>Copy</b> → <b>Copy all listed as cURL (bash)</b><br>
-    3. 粘贴到上方 Cookie 框 →「识别并保存」
-  </p>
-  <img src="how-to-update-cookie.png?v=2" alt="如何更新 Cookie：F12 → Network → Doc → Copy all listed as cURL (bash)">
+<div class="main-stack" id="mainStack">
+  <div class="card main-pane is-on" id="homeCard">
+    <h2>已扫描店铺 · <span id="shopLibUser"></span></h2>
+    <div class="toolbar" style="margin:0 0 8px">
+      <a class="btn-primary btn-download" id="btnDownloadClient" href="#" style="text-decoration:none">
+        <svg class="dl-ico" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 1a.75.75 0 0 1 .75.75v6.69l2.22-2.22a.75.75 0 1 1 1.06 1.06l-3.5 3.5a.75.75 0 0 1-1.06 0l-3.5-3.5a.75.75 0 0 1 1.06-1.06l2.22 2.22V1.75A.75.75 0 0 1 8 1zm-5 11.25a.75.75 0 0 0 0 1.5h10a.75.75 0 0 0 0-1.5H3z"/></svg>
+        <span class="dl-label">下载本机客户端</span>
+      </a>
+      <span id="clientVerText" class="muted"></span>
+    </div>
+    <p class="hint" id="smartScreenHint" style="margin:0 0 6px">若弹出「Windows 已保护你的电脑」：点「更多信息」→「仍要运行」。安装包尚未做微软代码签名，SmartScreen 会拦未建立信誉的新程序。</p>
+    <p class="hint" style="margin:0 0 6px">点店铺名打开/关闭问题列表。抓取请用本机客户端（Windows 安装包）。</p>
+    <table class="sheet" id="shopLibTable">
+      <thead>
+        <tr>
+          <th>店铺名</th>
+          <th style="width:72px">总商品数</th>
+          <th style="width:80px">问题商品数</th>
+          <th style="width:72px">进入店铺</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="shopLibEmpty" class="muted" style="display:none;margin-top:6px">暂无店铺，请用本机客户端抓取上传。</div>
+  </div>
+
+  <div class="card main-pane" id="pendingCard">
+    <h2>待检查店铺</h2>
+    <p class="hint" style="margin:0 0 8px">客户端自动/半自动采链写入；扫完后从本表删除。</p>
+    <table class="sheet" id="pendingTable">
+      <thead>
+        <tr>
+          <th>店铺名</th>
+          <th>链接</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="pendingEmpty" class="muted" style="display:none;margin-top:6px">暂无待检查店铺。</div>
+  </div>
+
+  <div class="card main-pane" id="guideCard">
+    <h2>使用方法 · 获取 Cookie</h2>
+    <p class="hint" style="margin:0 0 8px" id="guideBackLoginWrap"><a href="#login" id="linkBackLogin" style="color:var(--title);display:none">← 返回登录</a></p>
+    <p class="hint" style="margin:0 0 8px"><b>必须使用 Chrome 浏览器</b>（不要用 Edge）。按下面步骤复制后，粘贴到本机客户端 Cookie 文本框（支持整段 cURL，程序会自动抽出 Cookie）。</p>
+    <ol class="guide-steps">
+      <li>随便打开一个淘宝/天猫<strong>产品页</strong>链接</li>
+      <li>按 <b>F12</b> 打开开发者模式（右侧或下方出现开发者面板）</li>
+      <li>切到 <b>Network（网络）</b>，点选筛选 <b>Doc</b>，再按 <b>F5</b> 刷新页面</li>
+      <li>在列表里找到 <code>item.htm</code> 那一行 → 右键 → <b>Copy</b> → <b>Copy as cURL (cmd)</b>（按图中箭头操作）</li>
+      <li>回到本机客户端，粘贴到 <b>Cookie(可选)</b> 文本框</li>
+    </ol>
+    <img class="guide-fig" src="img/cookie_guide.png" alt="Chrome 开发者工具：Network → Doc → item.htm → Copy as cURL (cmd)">
+  </div>
+
+  <div class="card main-pane" id="settingsCard">
+    <h2>后台设置</h2>
+    <p class="hint" style="margin:0 0 8px">可配置参数来自 config.ini。密钥类用服务器 config.ini.local。</p>
+    <div id="adminPanel" class="admin-box">
+      <h3>管理员 · 手工充值</h3>
+      <div class="toolbar">
+        <label>用户名 <input id="adjUser" placeholder="目标用户名"></label>
+        <label>金额(元) <input id="adjYuan" type="number" step="0.01" value="10" style="width:80px"></label>
+        <label>备注 <input id="adjNote" value="管理员手动充值" style="width:140px"></label>
+        <button type="button" class="btn-primary" id="btnAdj">提交充值</button>
+        <span id="adjMsg" class="muted"></span>
+      </div>
+      <h3 style="margin-top:10px">管理员 · 扫商品单价</h3>
+      <p class="hint" style="margin:0 0 6px">每扫描 1 条商品扣一次；余额不足则停扫。填 0 表示免费。</p>
+      <div class="toolbar">
+        <label>单价(元/条) <input id="scanFeeYuan" type="number" step="0.01" min="0" value="0" style="width:80px"></label>
+        <button type="button" class="btn-primary" id="btnScanFee">保存单价</button>
+        <span id="scanFeeMsg" class="muted"></span>
+      </div>
+      <h3 style="margin-top:10px">管理员 · 自动扫描费用</h3>
+      <p class="hint" style="margin:0 0 6px">用户永久打开「自动模式」的一次性扣费。填 0 表示免费开通。</p>
+      <div class="toolbar">
+        <label>费用(元) <input id="autoScanFeeYuan" type="number" step="0.01" min="0" value="0" style="width:80px"></label>
+        <button type="button" class="btn-primary" id="btnAutoScanFee">保存费用</button>
+        <span id="autoScanFeeMsg" class="muted"></span>
+      </div>
+      <h3 style="margin-top:10px">管理员 · LLM 意见筛选提示词</h3>
+      <p class="hint" style="margin:0 0 6px">「意见库」点 LLM 筛选时用的判定提示词。写入 config.ini [llm] suggestion_filter_prompt。须要求输出 {"useless": [id, ...]}。</p>
+      <div class="toolbar" style="align-items:stretch;flex-direction:column">
+        <textarea id="filterPromptText" style="width:100%;min-height:120px;box-sizing:border-box;padding:6px;font-family:var(--mono);font-size:11px;line-height:1.4"></textarea>
+        <div>
+          <button type="button" class="btn-primary" id="btnFilterPrompt">保存提示词</button>
+          <span id="filterPromptMsg" class="muted" style="margin-left:8px"></span>
+        </div>
+      </div>
+    </div>
+    <div id="settingsList"></div>
+    <div class="toolbar" style="margin-top:8px">
+      <button class="btn-primary" type="button" id="btnSaveSettings">保存设置</button>
+      <span id="settingsMsg" class="muted"></span>
+    </div>
+  </div>
 </div>
 
 <script src="/shared/ui.js"></script>
+<script src="js/dialog.js"></script>
 <script>
-const API_BASE = '/absolute/api';
+const API_BASE = location.pathname.indexOf('/absolute_term') === 0
+  ? '/absolute_term/api'
+  : '/absolute/api';
+const TOKEN_KEY = 'absolute_term_token';
+let currentUser = '';
+let currentBalance = 0;
+let currentPhone = '';
+let currentIsAdmin = false;
+let currentScanFeeCents = 0;
+let currentAutoScan = false;
+let currentAutoScanFeeYuan = 0;
+let currentDbAdminUrl = '';
+let currentPage = 'login';
+let payPollTimer = null;
+let openShopDlg = null;
+let openShopId = '';
+let settingsLoaded = false;
+/** 菜单弹窗单例：再点同一菜单关闭，不叠新窗 */
+const menuDlgs = { recharge: null, phone: null, llm: null };
+
+function toggleMenuDialog(key, openFn) {
+  const cur = menuDlgs[key];
+  if (cur) {
+    try { cur.close(); } catch (e) {}
+    return null;
+  }
+  return openFn();
+}
+
+function getToken() { return localStorage.getItem(TOKEN_KEY) || ''; }
+function setToken(t) {
+  if (t) localStorage.setItem(TOKEN_KEY, t);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+function authHeaders(extra) {
+  const h = Object.assign({ 'Content-Type': 'application/json' }, extra || {});
+  const t = getToken();
+  if (t) h['Authorization'] = 'Bearer ' + t;
+  return h;
+}
+async function api(path, opts) {
+  opts = opts || {};
+  const headers = authHeaders(opts.headers || {});
+  if (opts.body == null) delete headers['Content-Type'];
+  const r = await fetch(API_BASE + path, Object.assign({ credentials: 'same-origin' }, opts, { headers }));
+  const ct = r.headers.get('content-type') || '';
+  const data = ct.indexOf('application/json') >= 0 ? await r.json() : { raw: await r.text() };
+  if (r.status === 401) {
+    setToken('');
+    showLoggedOut();
+    throw new Error(data.error || '未登录或会话过期');
+  }
+  if (!r.ok) throw new Error(data.error || ('HTTP ' + r.status));
+  return data;
+}
 
 function escapeHtml(s) {
   const d = document.createElement('div');
   d.textContent = s == null ? '' : String(s);
   return d.innerHTML;
 }
+function normalizePhone(v) {
+  return String(v || '').trim().replace(/^\+?86/, '');
+}
+function phoneOk(v) { return /^1[3-9]\d{9}$/.test(normalizePhone(v)); }
+function yuan(cents) { return '¥' + (Number(cents || 0) / 100).toFixed(2); }
 
-async function loadFiles() {
-  try {
-    const r = await fetch(API_BASE + '/files');
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.error || '加载失败');
-    document.getElementById('limitText').value = (d.limit && d.limit.content) || '';
-    document.getElementById('wrongText').value = (d.wrong && d.wrong.content) || '';
-    setMeta('limit', d.limit);
-    setMeta('wrong', d.wrong);
-  } catch (e) {
-    document.getElementById('limitMeta').textContent = '加载失败: ' + e.message;
-    document.getElementById('wrongMeta').textContent = '加载失败: ' + e.message;
+function switchAuthTab(tab) {
+  ['login', 'register', 'reset', 'recover'].forEach(t => {
+    const el = document.getElementById('tab-' + t);
+    if (el) el.style.display = t === tab ? 'block' : 'none';
+  });
+  document.querySelectorAll('.auth-tab').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
+}
+
+function lockMainStackHeight() {
+  const stack = document.getElementById('mainStack');
+  const home = document.getElementById('homeCard');
+  const settings = document.getElementById('settingsCard');
+  const guide = document.getElementById('guideCard');
+  const pending = document.getElementById('pendingCard');
+  if (!stack || !home || !settings) return;
+  const h = Math.max(
+    home.scrollHeight || 0,
+    settings.scrollHeight || 0,
+    (guide && guide.scrollHeight) || 0,
+    (pending && pending.scrollHeight) || 0,
+    360
+  );
+  stack.style.minHeight = h + 'px';
+}
+
+function showPage(page) {
+  if (page === 'settings' && !currentIsAdmin) page = 'home';
+  // 使用方法允许未登录打开（客户端「如何获取 Cookie」直达 #guide）
+  if (page === 'guide') {
+    currentPage = 'guide';
+    document.getElementById('loginHost').classList.add('is-off');
+    document.getElementById('mainStack').classList.add('is-on');
+    document.getElementById('homeCard').classList.remove('is-on');
+    document.getElementById('settingsCard').classList.remove('is-on');
+    document.getElementById('pendingCard').classList.remove('is-on');
+    document.getElementById('guideCard').classList.add('is-on');
+    document.getElementById('btnHome').classList.remove('active');
+    document.getElementById('btnPending').classList.remove('active');
+    document.getElementById('btnGuide').classList.add('active');
+    const back = document.getElementById('linkBackLogin');
+    if (back) back.style.display = currentUser ? 'none' : '';
+    if (location.hash !== '#guide') {
+      try { history.replaceState(null, '', '#guide'); } catch (e) {}
+    }
+    lockMainStackHeight();
+    return;
   }
-}
-
-function setMeta(key, info) {
-  const el = document.getElementById(key + 'Meta');
-  if (!info) { el.textContent = ''; return; }
-  el.textContent = `共 ${info.count || 0} 个词` + (info.words && info.words.length
-    ? '：' + info.words.slice(0, 20).join(' ') + (info.words.length > 20 ? ' …' : '')
-    : '');
-}
-
-async function saveFile(key) {
-  const btn = document.getElementById(key === 'limit' ? 'btnSaveLimit' : 'btnSaveWrong');
-  const meta = document.getElementById(key + 'Meta');
-  const content = document.getElementById(key === 'limit' ? 'limitText' : 'wrongText').value;
-  btn.disabled = true;
-  meta.textContent = '保存中...';
-  try {
-    const r = await fetch(API_BASE + '/files/' + key, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    });
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.error || '保存失败');
-    setMeta(key, d);
-    meta.textContent = '已保存 · ' + meta.textContent + ' · 请再点「开始扫描」才会按新词表检测';
-    const bar = document.getElementById('statusBar');
-    if (bar && bar.innerHTML) {
-      bar.insertAdjacentHTML('beforeend',
-        '<div class="status-item" style="flex:1 1 100%"><div class="label" style="color:#fa8c16">词表已更新，当前结果是旧的，请重新「开始扫描」</div></div>');
-    }
-  } catch (e) {
-    meta.textContent = '保存失败: ' + e.message;
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-function renderCookieStatus(d) {
-  const el = document.getElementById('cookieStatus');
-  const meta = document.getElementById('cookieMeta');
-  const pick = document.getElementById('cookiePick');
-  if (d && d.valid) {
-    el.style.color = d.warn ? '#fa8c16' : '#52c41a';
-    el.textContent = 'Cookie 已保存（' + (d.keys || 0) + ' 项' +
-      (d.has_h5_tk ? '，含 _m_h5_tk' : '，将自动补 _m_h5_tk') +
-      (d.score != null ? '，得分 ' + d.score : '') + '）' +
-      (d.warn ? ' · ' + d.warn : '');
-    if (pick) {
-      const cands = d.candidates || [];
-      let html = '';
-      if (d.candidates_count > 1 || (d.source || d.host)) {
-        html += '自动择优：' + escapeHtml(d.pick_method || 'rules') +
-          (d.host ? ' · 来源 ' + escapeHtml(d.host) : '') +
-          (d.source ? ' · ' + escapeHtml(d.source) : '');
-        if (d.llm_note) html += '<br>LLM：' + escapeHtml(d.llm_note);
-      }
-      if (cands.length > 1) {
-        html += '<br>候选对比：' + cands.map(c => {
-          const mark = c.selected ? '✓' : '·';
-          return mark + '#' + c.index + ' 分' + c.score +
-            (c.host ? '(' + c.host + ')' : '') +
-            ' uc1=' + c.uc1_len;
-        }).join('　');
-      }
-      if (d.reasons && d.reasons.length) {
-        html += '<br>规则得分：' + escapeHtml(d.reasons.slice(0, 8).join('；'));
-      }
-      if (d.rules && d.rules.length) {
-        html += '<br><span style="color:#999">判断规则：' + escapeHtml(d.rules.join(' / ')) + '</span>';
-      }
-      pick.style.display = html ? 'block' : 'none';
-      pick.innerHTML = html;
-    }
-    if (meta) {
-      const saved = d.saved_at
-        ? new Date(d.saved_at * 1000).toLocaleString('zh-CN', { hour12: false })
-        : '未知';
-      meta.style.display = 'block';
-      meta.textContent = '服务器保存于 ' + saved +
-        '。可粘贴多条 curl，程序按规则（必要时 LLM）自动选完整 Cookie；失效以抓取失败为准。';
-    }
+  currentPage = page;
+  const loginHost = document.getElementById('loginHost');
+  const mainStack = document.getElementById('mainStack');
+  if (page === 'login') {
+    loginHost.classList.remove('is-off');
+    mainStack.classList.remove('is-on');
+    try {
+      if (location.hash === '#guide') history.replaceState(null, '', location.pathname + location.search);
+    } catch (e) {}
   } else {
-    el.style.color = '#ff4d4f';
-    el.textContent = (d && d.error) ? d.error : '未配置有效 Cookie，无法抓取商品详情';
-    if (meta) meta.style.display = 'none';
-    if (pick) { pick.style.display = 'none'; pick.innerHTML = ''; }
+    loginHost.classList.add('is-off');
+    mainStack.classList.add('is-on');
+    document.getElementById('homeCard').classList.toggle('is-on', page === 'home');
+    document.getElementById('settingsCard').classList.toggle('is-on', page === 'settings');
+    document.getElementById('pendingCard').classList.toggle('is-on', page === 'pending');
+    document.getElementById('guideCard').classList.remove('is-on');
+    lockMainStackHeight();
+    try {
+      if (location.hash === '#guide') history.replaceState(null, '', location.pathname + location.search);
+    } catch (e) {}
   }
+  document.getElementById('btnHome').classList.toggle('active', page === 'home');
+  document.getElementById('btnPending').classList.toggle('active', page === 'pending');
+  document.getElementById('btnGuide').classList.remove('active');
 }
 
-async function loadGoodsStatus() {
-  try {
-    const r = await fetch(API_BASE + '/goods');
-    const d = await r.json();
-    const el = document.getElementById('goodsStatus');
-    if (d.count > 0) {
-      el.textContent = `已缓存 ${d.count} 个商品资料（file/goods.md），开始扫描将复用`;
-    } else {
-      el.textContent = '尚无商品缓存，首次扫描会写入 file/goods.md';
+function showLoggedOut() {
+  currentUser = '';
+  currentBalance = 0;
+  currentPhone = '';
+  currentIsAdmin = false;
+  currentScanFeeCents = 0;
+  currentAutoScan = false;
+  currentAutoScanFeeYuan = 0;
+  currentDbAdminUrl = '';
+  settingsLoaded = false;
+  if (payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+  if (openShopDlg) { try { openShopDlg.close(); } catch (e) {} openShopDlg = null; openShopId = ''; }
+  Object.keys(menuDlgs).forEach(k => {
+    if (menuDlgs[k]) { try { menuDlgs[k].close(); } catch (e) {} menuDlgs[k] = null; }
+  });
+  document.getElementById('loginStateGuest').style.display = '';
+  document.getElementById('acctBar').classList.remove('is-on');
+  document.getElementById('navTabs').classList.remove('is-on');
+  document.getElementById('userMenu').classList.remove('open');
+  document.getElementById('adminMenu').classList.remove('open');
+  ['btnLogout','btnRecharge','btnPending','btnAdminMenu'].forEach(id => {
+    document.getElementById(id).style.display = 'none';
+  });
+  document.getElementById('loginStateGuest').textContent = '未登录';
+  switchAuthTab('login');
+  showPage('login');
+}
+
+function updateAcctBar() {
+  document.getElementById('userText').textContent = currentUser || '—';
+  document.getElementById('umName').textContent = currentUser || '—';
+  document.getElementById('umBal').textContent = '¥' + currentBalance.toFixed(2);
+  const phoneVal = document.getElementById('umPhone');
+  const setPhone = document.getElementById('umSetPhone');
+  if (currentPhone) { phoneVal.textContent = currentPhone; phoneVal.style.display = ''; setPhone.style.display = 'none'; }
+  else { phoneVal.textContent = '（未填）'; phoneVal.style.display = ''; setPhone.style.display = ''; }
+  document.getElementById('umAuto').textContent = currentAutoScan ? '已开通' : '未开通';
+  document.getElementById('umAutoGo').style.display = currentAutoScan ? 'none' : '';
+  document.getElementById('umFee').textContent = currentScanFeeCents > 0 ? (yuan(currentScanFeeCents) + '/条') : '免费';
+  const feeInput = document.getElementById('scanFeeYuan');
+  if (feeInput) feeInput.value = (currentScanFeeCents / 100).toFixed(2);
+  const autoFeeInput = document.getElementById('autoScanFeeYuan');
+  if (autoFeeInput) autoFeeInput.value = Number(currentAutoScanFeeYuan || 0).toFixed(2);
+}
+
+function showLoggedIn(me) {
+  me = me || {};
+  currentUser = me.username || '';
+  currentBalance = Number(me.balance || 0);
+  currentPhone = me.phone || '';
+  currentIsAdmin = !!me.is_admin;
+  currentScanFeeCents = Number(me.scan_fee_cents || 0);
+  currentAutoScan = !!me.auto_scan;
+  currentAutoScanFeeYuan = Number(me.auto_scan_fee_yuan || 0);
+  currentDbAdminUrl = currentIsAdmin ? String(me.db_admin_url || 'db.html') : '';
+  document.getElementById('loginStateGuest').style.display = 'none';
+  document.getElementById('acctBar').classList.add('is-on');
+  document.getElementById('navTabs').classList.add('is-on');
+  document.getElementById('btnLogout').style.display = '';
+  document.getElementById('btnRecharge').style.display = '';
+  document.getElementById('btnPending').style.display = '';
+  document.getElementById('btnAdminMenu').style.display = currentIsAdmin ? '' : 'none';
+  if (!currentIsAdmin) document.getElementById('adminMenu').classList.remove('open');
+  updateAcctBar();
+  const u = document.getElementById('shopLibUser');
+  if (u) u.textContent = currentUser;
+  showPage('home');
+}
+
+async function openSuggestionsDialog() {
+  return toggleMenuDialog('suggestions', () => {
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<div class="toolbar" style="margin-bottom:6px">' +
+    '<button type="button" class="btn-primary" id="sgFilter" title="让 LLM 判断并删除毫无意义的建议">LLM 筛选有用建议</button>' +
+    '<span id="sgMsg" class="muted" style="margin-left:8px"></span></div>' +
+    '<div id="sgList" class="muted">加载中…</div>';
+  const dlg = AppDialog.open({
+    title: '意见库',
+    body: wrap,
+    width: 600,
+    height: 480,
+    onClose: () => { if (menuDlgs.suggestions === dlg) menuDlgs.suggestions = null; },
+    actions: [{ label: '关闭', className: 'ghost', onClick: () => dlg.close() }]
+  });
+  menuDlgs.suggestions = dlg;
+  const msg = wrap.querySelector('#sgMsg');
+  async function reload() {
+    const list = wrap.querySelector('#sgList');
+    list.className = 'muted';
+    list.textContent = '加载中…';
+    try {
+      const d = await api('/suggestions');
+      const items = d.items || [];
+      list.innerHTML = '';
+      if (!items.length) { list.textContent = '暂无意见。'; return; }
+      const tb = document.createElement('table');
+      tb.className = 'goods-table';
+      tb.innerHTML = '<thead><tr><th style="width:104px">时间</th><th style="width:80px">用户</th>' +
+        '<th>意见</th><th style="width:48px"></th></tr></thead>';
+      const body = document.createElement('tbody');
+      for (const it of items) {
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td');
+        td1.textContent = String(it.date || '').replace('T', ' ').slice(0, 16);
+        const td2 = document.createElement('td');
+        td2.textContent = it.username || ('#' + it.user_id);
+        const td3 = document.createElement('td');
+        td3.textContent = it.comment;
+        td3.style.whiteSpace = 'pre-wrap';
+        const td4 = document.createElement('td');
+        const del = document.createElement('button');
+        del.type = 'button'; del.className = 'menu-btn'; del.textContent = '删除';
+        del.onclick = async () => {
+          try {
+            await api('/suggestions/delete', { method: 'POST', body: JSON.stringify({ id: it.id }) });
+            msg.className = 'ok'; msg.textContent = '已删除';
+            await reload();
+          } catch (e) { msg.className = 'err'; msg.textContent = e.message; }
+        };
+        td4.appendChild(del);
+        tr.append(td1, td2, td3, td4);
+        body.appendChild(tr);
+      }
+      tb.appendChild(body);
+      list.appendChild(tb);
+    } catch (e) {
+      list.className = 'err';
+      list.textContent = e.message;
     }
-  } catch (e) {}
+  }
+  wrap.querySelector('#sgFilter').onclick = async () => {
+    msg.className = 'muted'; msg.textContent = 'LLM 筛选中…';
+    try {
+      const d = await api('/suggestions/filter', { method: 'POST', body: '{}' });
+      msg.className = 'ok';
+      msg.textContent = '已删除 ' + (d.deleted || 0) + ' 条毫无意义的建议';
+      await reload();
+    } catch (e) { msg.className = 'err'; msg.textContent = e.message; }
+  };
+  reload();
+  return dlg;
+  });
 }
 
-async function loadShops() {
-  const sel = document.getElementById('shopSelect');
-  if (!sel) return;
-  const prev = sel.value;
-  try {
-    const r = await fetch(API_BASE + '/shops');
-    const d = await r.json();
-    const shops = d.shops || [];
-    sel.innerHTML = '';
-    const opt0 = document.createElement('option');
-    opt0.value = '';
-    opt0.textContent = shops.length
-      ? '— 选择已保存店铺（重扫不必再贴链接）—'
-      : '— 暂无，请先用商品链接添加 —';
-    sel.appendChild(opt0);
-    for (const s of shops) {
-      const opt = document.createElement('option');
-      opt.value = s.shop_id;
-      opt.textContent = s.shop_name || s.shop_id;
-      sel.appendChild(opt);
+async function openRechargeDialog() {
+  return toggleMenuDialog('recharge', () => {
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<p class="hint" style="margin:0 0 8px">支持微信扫码与支付宝网页支付。金额单位：元。</p>' +
+    '<div class="toolbar">' +
+    '<label>金额 <input id="rcAmount" value="10" style="width:80px"></label>' +
+    '<button type="button" class="btn-primary" id="rcWechat">微信充值</button>' +
+    '<button type="button" class="menu-btn" id="rcAlipay">支付宝充值</button></div>' +
+    '<div id="rcMsg" class="muted" style="margin-bottom:6px"></div>' +
+    '<div id="rcQr" style="text-align:center"></div>';
+  const dlg = AppDialog.open({
+    title: '账户充值',
+    body: wrap,
+    width: 400,
+    height: 440,
+    onClose: () => {
+      if (menuDlgs.recharge === dlg) menuDlgs.recharge = null;
+      if (payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+    },
+    actions: [{ label: '关闭', className: 'ghost', onClick: () => { if (payPollTimer) clearInterval(payPollTimer); dlg.close(); } }]
+  });
+  menuDlgs.recharge = dlg;
+  async function startPay(channel) {
+    const msg = wrap.querySelector('#rcMsg');
+    const qr = wrap.querySelector('#rcQr');
+    const yuanVal = parseFloat(wrap.querySelector('#rcAmount').value || '0');
+    if (!(yuanVal >= 0.1)) { msg.textContent = '最低 0.1 元'; msg.className = 'err'; return; }
+    const amount_cents = Math.round(yuanVal * 100);
+    msg.className = 'muted';
+    msg.textContent = '下单中…';
+    qr.innerHTML = '';
+    if (payPollTimer) { clearInterval(payPollTimer); payPollTimer = null; }
+    try {
+      const d = await api('/pay/recharge', {
+        method: 'POST',
+        body: JSON.stringify({ amount_cents, channel })
+      });
+      if (channel === 'alipay' && d.pay_url) {
+        msg.textContent = '正在跳转支付宝…';
+        location.href = d.pay_url;
+        return;
+      }
+      msg.textContent = '请扫码支付 ' + yuan(d.amount_cents) + ' · 订单 ' + d.order_no;
+      if (d.qr_data_url) {
+        qr.innerHTML = '<img alt="微信支付二维码" src="' + d.qr_data_url + '" style="width:180px;height:180px">';
+      } else if (d.code_url) {
+        qr.innerHTML = '<img alt="微信支付二维码" src="' + API_BASE + '/pay/qr.png?data=' +
+          encodeURIComponent(d.code_url) + '" style="width:180px;height:180px">';
+      }
+      payPollTimer = setInterval(async () => {
+        try {
+          const st = await api('/pay/orders/' + encodeURIComponent(d.order_no));
+          if (st.status === 'paid') {
+            clearInterval(payPollTimer);
+            payPollTimer = null;
+            msg.className = 'ok';
+            msg.textContent = '支付成功，余额已更新';
+            const me = await api('/me');
+            showLoggedIn(me);
+            showPage(currentPage === 'settings' && currentIsAdmin ? 'settings' : 'home');
+          }
+        } catch (e) {}
+      }, 2000);
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
     }
-    if (prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;
-  } catch (e) {}
+  }
+  wrap.querySelector('#rcWechat').onclick = () => startPay('wechat');
+  wrap.querySelector('#rcAlipay').onclick = () => startPay('alipay');
+  return dlg;
+  });
 }
 
-async function removeSelectedShop() {
-  const sel = document.getElementById('shopSelect');
-  const shopId = sel.value;
-  if (!shopId) { alert('请先选择要删除的店铺'); return; }
-  const name = sel.options[sel.selectedIndex].textContent;
-  if (!confirm('从列表删除「' + name + '」？不会删除 goods.md')) return;
-  try {
-    const r = await fetch(API_BASE + '/shops/delete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shop_id: shopId })
+async function openPhoneDialog() {
+  return toggleMenuDialog('phone', () => {
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<p class="hint" style="margin:0 0 8px">可选。重置密码时填的手机也会记下来，不必事先绑定。</p>' +
+    '<div class="toolbar">' +
+    '<label>手机 <input id="bpPhone" value="' + escapeHtml(currentPhone) + '"></label>' +
+    '<label>验证码 <input id="bpCode" style="width:80px"></label>' +
+    '<button type="button" class="menu-btn" id="bpSms">发验证码</button></div>' +
+    '<div id="bpMsg" class="muted" style="margin-top:6px"></div>';
+  const dlg = AppDialog.open({
+    title: '手机号（找回用）',
+    body: wrap,
+    width: 420,
+    height: 220,
+    onClose: () => { if (menuDlgs.phone === dlg) menuDlgs.phone = null; },
+    actions: [
+      { label: '取消', className: 'ghost', onClick: () => dlg.close() },
+      {
+        label: '保存',
+        className: 'primary',
+        onClick: async () => {
+          const msg = wrap.querySelector('#bpMsg');
+          try {
+            await api('/auth/bind-phone', {
+              method: 'POST',
+              body: JSON.stringify({
+                phone: normalizePhone(wrap.querySelector('#bpPhone').value),
+                code: wrap.querySelector('#bpCode').value.trim()
+              })
+            });
+            const me = await api('/me');
+            showLoggedIn(me);
+            showPage(currentPage === 'settings' && currentIsAdmin ? 'settings' : 'home');
+            dlg.close();
+          } catch (e) {
+            msg.className = 'err';
+            msg.textContent = e.message;
+          }
+        }
+      }
+    ]
+  });
+  menuDlgs.phone = dlg;
+  wrap.querySelector('#bpSms').onclick = async () => {
+    const msg = wrap.querySelector('#bpMsg');
+    const phone = normalizePhone(wrap.querySelector('#bpPhone').value);
+    if (!phoneOk(phone)) { msg.className = 'err'; msg.textContent = '手机号不正确'; return; }
+    try {
+      await api('/auth/send-sms', { method: 'POST', body: JSON.stringify({ phone, purpose: 'bind' }) });
+      msg.className = 'ok';
+      msg.textContent = '验证码已发送';
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  return dlg;
+  });
+}
+
+async function loadShopLibrary() {
+  const d = await api('/shops');
+  const shops = d.shops || [];
+  const tb = document.querySelector('#shopLibTable tbody');
+  const empty = document.getElementById('shopLibEmpty');
+  tb.innerHTML = '';
+  if (!shops.length) {
+    empty.style.display = 'block';
+    empty.textContent = '暂无店铺，请用本机客户端抓取上传。';
+    lockMainStackHeight();
+    return;
+  }
+  empty.style.display = 'none';
+  for (const s of shops) {
+    const tr = document.createElement('tr');
+    const name = s.shop_name || s.tb_shop_id || s.shop_id || '';
+    const link = s.shop_link || s.shop_url || '';
+    const tbId = s.tb_shop_id || s.shop_id || '';
+    const goods = s.goods_sum != null ? s.goods_sum : (s.item_count || 0);
+    const bad = s.bad_goods_sum != null ? s.bad_goods_sum : 0;
+    tr.innerHTML =
+      '<td><a href="#" data-shop="' + escapeHtml(tbId) + '" class="shop-name-link">' +
+      escapeHtml(name) + '</a></td>' +
+      '<td>' + escapeHtml(String(goods)) + '</td>' +
+      '<td>' + escapeHtml(String(bad)) + '</td>' +
+      '<td>' +
+      (link ? ('<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener">进入</a>') : '-') +
+      '</td>';
+    tb.appendChild(tr);
+  }
+  tb.querySelectorAll('.shop-name-link').forEach(a => {
+    a.addEventListener('click', async (ev) => {
+      ev.preventDefault();
+      const sid = a.getAttribute('data-shop') || '';
+      await toggleShopGoodsDialog(sid, a.textContent || '', a);
     });
-    const d = await r.json();
+  });
+  lockMainStackHeight();
+}
+
+async function loadPendingShops() {
+  const d = await api('/scan-shops');
+  const shops = d.shops || [];
+  const tb = document.querySelector('#pendingTable tbody');
+  const empty = document.getElementById('pendingEmpty');
+  tb.innerHTML = '';
+  if (!shops.length) {
+    empty.style.display = 'block';
+    lockMainStackHeight();
+    return;
+  }
+  empty.style.display = 'none';
+  for (const s of shops) {
+    const tr = document.createElement('tr');
+    const name = s.shop_name || s.tb_shop_id || '';
+    const link = s.shop_link || '';
+    tr.innerHTML =
+      '<td>' + escapeHtml(name) + '</td>' +
+      '<td>' +
+      (link
+        ? ('<a href="' + escapeHtml(link) + '" target="_blank" rel="noopener">' + escapeHtml(link) + '</a>')
+        : '-') +
+      '</td>';
+    tb.appendChild(tr);
+  }
+  lockMainStackHeight();
+}
+
+function buildGoodsTableEl(shopName, goods) {
+  const wrap = document.createElement('div');
+  if (!goods.length) {
+    wrap.innerHTML = '<p class="muted" style="margin:0">该店铺暂无入库的问题商品。</p>';
+    return wrap;
+  }
+  let html = '<table class="goods-table"><thead><tr>' +
+    '<th>商品名</th><th style="width:100px">命中词</th><th>摘要</th></tr></thead><tbody>';
+  for (const g of goods) {
+    const kws = (g.hit_keywords || []).join('、') || '—';
+    const sum = (g.hit_summary || '').trim() || '—';
+    html += '<tr>' +
+      '<td>' +
+      (g.goods_link
+        ? ('<a href="' + escapeHtml(g.goods_link) + '" target="_blank" rel="noopener">' + escapeHtml(g.goods_name || g.tb_item_id || '') + '</a>')
+        : escapeHtml(g.goods_name || g.tb_item_id || '')) +
+      '</td>' +
+      '<td style="color:var(--err)">' + escapeHtml(kws) + '</td>' +
+      '<td style="white-space:pre-wrap;color:var(--muted)">' + escapeHtml(sum) + '</td></tr>';
+  }
+  html += '</tbody></table>';
+  wrap.innerHTML = html;
+  return wrap;
+}
+
+async function toggleShopGoodsDialog(shopId, shopName, linkEl) {
+  if (typeof AppDialog !== 'function') throw new Error('弹窗类 AppDialog 未加载');
+  // 再点同一店铺：关闭
+  if (openShopDlg && openShopId === shopId) {
+    openShopDlg.close();
+    return;
+  }
+  // 换店：先关旧的
+  if (openShopDlg) {
+    try { openShopDlg.close(); } catch (e) {}
+  }
+  document.querySelectorAll('.shop-name-link.open').forEach(el => el.classList.remove('open'));
+  if (linkEl) linkEl.classList.add('open');
+
+  const body = document.createElement('div');
+  body.innerHTML = '<p class="muted" style="margin:0">加载中…</p>';
+  const dlg = AppDialog.open({
+    title: (shopName || '店铺') + ' · 问题商品',
+    body: body,
+    width: 820,
+    height: 480,
+    wide: true,
+    onClose: () => {
+      if (openShopDlg === dlg) {
+        openShopDlg = null;
+        openShopId = '';
+      }
+      document.querySelectorAll('.shop-name-link.open').forEach(el => el.classList.remove('open'));
+    },
+    actions: [{ label: '关闭', className: 'ghost', onClick: () => dlg.close() }]
+  });
+  openShopDlg = dlg;
+  openShopId = shopId;
+  try {
+    const d = await api('/goods/list?shop_id=' + encodeURIComponent(shopId));
     if (d.error) throw new Error(d.error);
-    await loadShops();
+    const goods = (d.goods || []).filter(g => (g.problem || '').trim() || g.has_problem);
+    if (openShopDlg === dlg) dlg.setBody(buildGoodsTableEl(shopName, goods));
   } catch (e) {
-    alert('删除失败: ' + e.message);
+    const err = document.createElement('p');
+    err.className = 'err';
+    err.textContent = '加载失败: ' + e.message;
+    if (openShopDlg === dlg) dlg.setBody(err);
   }
 }
 
-async function addShopFromUrl() {
-  const url = document.getElementById('shopUrl').value.trim();
-  if (!url) { alert('请先粘贴商品链接'); return; }
-  const btn = document.getElementById('btnAddShop');
-  btn.disabled = true;
+async function openLlmPromptDialog() {
+  if (!currentIsAdmin) { alert('仅管理员可编辑'); return; }
+  return toggleMenuDialog('llm', () => {
+  const wrap = document.createElement('div');
+  wrap.innerHTML =
+    '<p class="hint" style="margin:0 0 6px">写入 config.ini [llm] judge_prompt。</p>' +
+    '<label style="display:flex;flex-direction:column;gap:4px;align-items:stretch">提示词' +
+    '<textarea id="llmPromptText" style="width:100%;min-height:240px;box-sizing:border-box;padding:6px;font-family:var(--mono);font-size:11px;line-height:1.4"></textarea></label>' +
+    '<div id="llmPromptMsg" class="muted" style="margin-top:4px"></div>';
+  const dlg = AppDialog.open({
+    title: 'LLM 判定提示词',
+    body: wrap,
+    width: 700,
+    height: 480,
+    onClose: () => { if (menuDlgs.llm === dlg) menuDlgs.llm = null; },
+    actions: [
+      { label: '取消', className: 'ghost', onClick: () => dlg.close() },
+      {
+        label: '保存',
+        className: 'primary',
+        onClick: async () => {
+          const msg = wrap.querySelector('#llmPromptMsg');
+          try {
+            await api('/llm/prompt', {
+              method: 'POST',
+              body: JSON.stringify({ prompt: wrap.querySelector('#llmPromptText').value })
+            });
+            msg.className = 'ok';
+            msg.textContent = '已保存';
+            setTimeout(() => dlg.close(), 500);
+          } catch (e) {
+            msg.className = 'err';
+            msg.textContent = e.message;
+          }
+        }
+      }
+    ]
+  });
+  menuDlgs.llm = dlg;
+  api('/llm/prompt').then(d => {
+    wrap.querySelector('#llmPromptText').value = d.prompt || '';
+  }).catch(e => {
+    wrap.querySelector('#llmPromptMsg').className = 'err';
+    wrap.querySelector('#llmPromptMsg').textContent = e.message;
+  });
+  return dlg;
+  });
+}
+
+async function loadSettingsPanel() {
+  if (!currentIsAdmin) throw new Error('仅管理员可打开设置');
+  const box = document.getElementById('settingsList');
+  const d = await api('/settings');
+  box.innerHTML = (d.items || []).map((it, i) => {
+    return '<div class="toolbar" style="margin:3px 0">'
+      + '<label style="min-width:200px">['
+      + escapeHtml(it.section) + '] ' + escapeHtml(it.key)
+      + ' <input data-idx="' + i + '" value="' + escapeHtml(it.value) + '" style="width:220px"></label>'
+      + '<span class="muted">' + escapeHtml(it.remark || '') + '</span></div>';
+  }).join('');
+  box._items = d.items || [];
+  document.getElementById('scanFeeYuan').value = (currentScanFeeCents / 100).toFixed(2);
   try {
-    const r = await fetch(API_BASE + '/shops/add', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
-    });
-    const d = await r.json();
-    if (d.error || !d.ok) throw new Error(d.error || '加入失败');
-    await loadShops();
-    const sel = document.getElementById('shopSelect');
-    if (d.shop && d.shop.shop_id) sel.value = d.shop.shop_id;
-    alert('已加入店铺「' + (d.shop && d.shop.shop_name ? d.shop.shop_name : d.shop.shop_id) + '」');
+    const fp = await api('/llm/filter-prompt');
+    document.getElementById('filterPromptText').value = fp.prompt || '';
   } catch (e) {
-    alert('加入店铺失败: ' + e.message);
-  } finally {
-    btn.disabled = false;
+    const m = document.getElementById('filterPromptMsg');
+    m.className = 'err'; m.textContent = e.message;
   }
+  settingsLoaded = true;
+  lockMainStackHeight();
+}
+
+async function saveSettingsPanel() {
+  if (!currentIsAdmin) throw new Error('仅管理员可保存设置');
+  const box = document.getElementById('settingsList');
+  const items = box._items || [];
+  const updates = [];
+  box.querySelectorAll('input[data-idx]').forEach(inp => {
+    const it = items[parseInt(inp.getAttribute('data-idx'), 10)];
+    if (!it) return;
+    updates.push({ section: it.section, key: it.key, value: inp.value });
+  });
+  const d = await api('/settings', { method: 'POST', body: JSON.stringify({ updates }) });
+  document.getElementById('settingsMsg').textContent = '已保存 ' + (d.changed || []).length + ' 项';
+  await loadSettingsPanel();
+}
+
+async function afterLogin(user) {
+  const u = typeof user === 'string' ? { username: user } : (user || {});
+  if (u.is_admin == null || u.scan_fee_cents == null) {
+    try { showLoggedIn(await api('/me')); }
+    catch (e) { showLoggedIn(u); }
+  } else {
+    showLoggedIn(u);
+  }
+  try { await loadShopLibrary(); } catch (e) {
+    document.getElementById('shopLibEmpty').style.display = 'block';
+    document.getElementById('shopLibEmpty').textContent = '加载失败: ' + e.message;
+  }
+  lockMainStackHeight();
+  // 管理员预载设置，切换时不再临时灌 HTML 撑高页面
+  if (currentIsAdmin) {
+    try { await loadSettingsPanel(); } catch (e) {}
+  }
+  if ((location.hash || '').replace(/^#/, '').toLowerCase() === 'recharge') {
+    try { await openRechargeDialog(); } catch (e) {}
+  }
+}
+
+async function consumeTicketFromUrl() {
+  const q = new URLSearchParams(location.search);
+  const ticket = (q.get('ticket') || '').trim();
+  if (!ticket) return false;
+  const d = await api('/auth/consume-ticket', {
+    method: 'POST',
+    body: JSON.stringify({ ticket: ticket }),
+  });
+  if (!d || !d.token) throw new Error('登录票没有返回 token');
+  setToken(d.token);
+  const u = new URL(location.href);
+  u.searchParams.delete('ticket');
+  history.replaceState(null, '', u.pathname + u.search + u.hash);
+  await afterLogin(d.user || {});
+  return true;
+}
+
+async function loadClientDownloadLinks() {
+  try {
+    const d = await api('/client/app-update?current=0.0.0');
+    const main = d.main_url || d.url || '';
+    const ver = d.version || '';
+    const label = d.label || '小李的电商扫描器';
+    const note = d.note || d.download_main_note || '';
+    const text = ver ? (label + ' v' + ver) : label;
+    [['btnDownloadClient', 'clientVerText'], ['btnDownloadClientGuest', 'clientVerTextGuest']].forEach(pair => {
+      const a = document.getElementById(pair[0]);
+      const t = document.getElementById(pair[1]);
+      if (a && main) {
+        a.href = main;
+        const lab = a.querySelector('.dl-label');
+        const labelText = a.id === 'btnDownloadClientGuest'
+          ? '下载 Windows 客户端'
+          : ('下载本机客户端' + (ver ? (' v' + ver) : ''));
+        if (lab) lab.textContent = labelText;
+        else a.textContent = labelText;
+        a.removeAttribute('aria-disabled');
+      }
+      if (t) t.textContent = note ? (' · ' + note) : (ver ? ('当前版本 ' + ver) : '');
+    });
+  } catch (e) {
+    const t = document.getElementById('clientVerText');
+    if (t) t.textContent = '下载链接暂不可用';
+  }
+}
+
+function bindEnterSubmit(inputIds, buttonId) {
+  inputIds.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        document.getElementById(buttonId).click();
+      }
+    });
+  });
 }
 
 (async function() {
-  try {
-    const r = await fetch(API_BASE + '/cookie');
-    renderCookieStatus(await r.json());
-  } catch (e) {}
-  // 导航链接 + 默认上限从 config.ini 读取
-  try {
-    const ur = await fetch(API_BASE + '/ui');
-    const ui = await ur.json();
-    const houtai = ui.houtai_url || '/houtai/';
-    const home = ui.home_url || 'https://www.imocfood.com';
-    document.getElementById('btnHoutai').onclick = () => { location.href = houtai; };
-    document.getElementById('btnHome').onclick = () => { window.open(home, '_blank'); };
-  } catch (e) {
-    document.getElementById('btnHoutai').onclick = () => { location.href = '/houtai/'; };
-    document.getElementById('btnHome').onclick = () => { window.open('https://www.imocfood.com', '_blank'); };
-  }
-  try {
-    const cr = await fetch(API_BASE + '/config');
-    const txt = await cr.text();
-    const m = txt.match(/^\s*default_max_items\s*=\s*(\d+)/m);
-    if (m) document.getElementById('shopMax').value = m[1];
-  } catch (e) {}
-  loadFiles();
-  loadGoodsStatus();
-  loadShops();
-  loadClientInfo();
-})();
-
-async function loadClientInfo() {
-  const stepsEl = document.getElementById('clientSteps');
-  const metaEl = document.getElementById('clientMeta');
-  const noteEl = document.getElementById('clientNote');
-  const btn = document.getElementById('btnClientDl');
-  try {
-    const r = await fetch(API_BASE + '/client/info');
-    const d = await r.json();
-    if (!d.ok) throw new Error(d.error || '加载失败');
-    if (d.note) noteEl.textContent = d.note;
-    stepsEl.innerHTML = (d.steps || []).map(s => '<li>' + escapeHtml(s) + '</li>').join('');
-    const href = d.preferred_download
-      ? ('/absolute/' + d.preferred_download)
-      : '#';
-    btn.href = href;
-    btn.setAttribute('download', '');
-    if (!d.preferred_download) {
-      btn.textContent = '暂无下载包';
-      btn.onclick = (e) => { e.preventDefault(); alert('请管理员运行 build_client.sh'); };
-    } else {
-      const name = d.preferred_download.split('/').pop();
-      btn.textContent = '下载 ' + name;
-      const size = (d.files || []).find(f => d.preferred_download.endsWith(f.name));
-      const mb = size ? (size.size / 1048576).toFixed(1) + ' MB' : '';
-      metaEl.textContent = 'v' + (d.version || '') + (mb ? ' · ' + mb : '')
-        + ' · 解压后运行「绝对词抓取客户端.bat」';
-    }
-  } catch (e) {
-    metaEl.textContent = '客户端信息加载失败: ' + e.message;
-  }
-}
-
-async function saveCookie() {
-  const cookie = document.getElementById('shopCookie').value.trim();
-  if (!cookie) { alert('请先粘贴 Cookie 或整段 curl（可多条）'); return; }
-  // 允许 curl/多段；仅拒绝「只有一条商品 URL」
-  if (/^https?:\/\/\S+$/i.test(cookie) && !/curl/i.test(cookie) && cookie.indexOf('cookie2=') < 0) {
-    renderCookieStatus({ valid: false, error: '你粘贴的是商品链接。请粘贴 Cookie 或 Copy as cURL' });
-    return;
-  }
-  const el = document.getElementById('cookieStatus');
-  el.style.color = '#666';
-  el.textContent = '正在识别并择优…';
-  try {
-    const r = await fetch(API_BASE + '/cookie', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cookie, use_llm: true })
-    });
-    const d = await r.json();
-    renderCookieStatus(d);
-    if (d.valid) document.getElementById('shopCookie').value = '';
-  } catch (e) {
-    renderCookieStatus({ valid: false, error: '保存失败: ' + e.message });
-  }
-}
-
-async function startShopScan(forceRescan) {
-  const url = document.getElementById('shopUrl').value.trim();
-  const shopId = document.getElementById('shopSelect').value.trim();
-  if (forceRescan && !url && !shopId) {
-    alert('重新扫描请选择已保存店铺，或粘贴商品/店铺链接');
-    return;
-  }
-  const btnScan = document.getElementById('btnShopScan');
-  const btnRescan = document.getElementById('btnRescan');
-  btnScan.disabled = true;
-  btnRescan.disabled = true;
-  document.getElementById('shopProgress').style.display = 'block';
-  document.getElementById('shopProgress').textContent = forceRescan
-    ? (shopId ? '按已选店铺重新抓取淘宝...' : '用链接解析店铺并重新抓取...')
-    : '从 goods.md 扫描全部缓存商品...';
-  document.getElementById('resultCard').style.display = 'block';
-  document.getElementById('scanning').style.display = 'block';
-  document.getElementById('resultContent').innerHTML = '';
-  document.getElementById('statusBar').innerHTML = '';
-
-  try {
-    const r = await fetch(API_BASE + '/scan/shop', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        // 重扫：有商品/店铺链接时以链接为准（避免下拉旧店盖住新链接）；否则用下拉店铺
-        // 开始扫描：忽略链接与店铺，只扫 goods.md
-        url: forceRescan ? url : '',
-        shop_id: forceRescan ? (url ? '' : shopId) : '',
-        ocr: document.getElementById('shopOcr').checked,
-        llm: document.getElementById('shopLlm').checked,
-        max_items: parseInt(document.getElementById('shopMax').value) || 0,
-        force_rescan: !!forceRescan
-      })
-    });
-    const d = await r.json();
-    if (d.error || !d.task_id) throw new Error(d.error || '任务创建失败');
-
-    const taskId = d.task_id;
-    let task = null;
-    for (let i = 0; i < 1200; i++) {
-      await new Promise(res => setTimeout(res, 2000));
-      const sr = await fetch(API_BASE + '/scan/status?task_id=' + taskId);
-      task = await sr.json();
-      if (task.error && task.status === 'error') throw new Error(task.error);
-      const pct = task.total > 0 ? Math.round(task.current / task.total * 100) : 0;
-      document.getElementById('shopProgress').innerHTML =
-        `扫描进度: <b>${task.current} / ${task.total}</b> (${pct}%)` +
-        (task.current_title ? `<br>正在扫描: ${escapeHtml(task.current_title)}` : '');
-      // 重扫时店铺在解析成功后就会写入，轮询中刷新下拉（不必等扫完）
-      if (forceRescan && i % 2 === 0) loadShops();
-      if (task.status === 'done') break;
-      if (task.status === 'error') throw new Error(task.error || '扫描失败');
-    }
-    if (!task || task.status !== 'done') throw new Error('扫描超时，请稍后查看');
-    document.getElementById('scanning').style.display = 'none';
-    renderShopResult(task);
-    loadGoodsStatus();
-    loadShops();
-  } catch (e) {
-    document.getElementById('scanning').style.display = 'none';
-    document.getElementById('resultContent').innerHTML =
-      '<p style="color:red">扫描失败: ' + escapeHtml(e.message) + '</p>';
-  } finally {
-    btnScan.disabled = false;
-    btnRescan.disabled = false;
-    document.getElementById('shopProgress').style.display = 'none';
-  }
-}
-
-function renderShopResult(d) {
-  const results = d.results || [];
-  const hitItems = results.filter(r => r.hits && r.hits.length > 0);
-  const failItems = hitItems.filter(r => r.judge && r.judge.includes('"violate": true'));
-  const fetchFail = results.filter(r => r.error || !(r.title && r.title !== r.id));
-  let limitHitItems = 0, wrongHitItems = 0;
-  for (const r of hitItems) {
-    const cats = new Set((r.hits || []).map(h => h.category || ''));
-    if (cats.has('极限词')) limitHitItems++;
-    if (cats.has('错误描述')) wrongHitItems++;
-  }
-
-  document.getElementById('statusBar').innerHTML = `
-    <div class="status-item"><div class="num">${d.total || 0}</div><div class="label">${d.mode === 'shop' ? '店铺商品' : '商品数'}</div></div>
-    <div class="status-item"><div class="num">${d.scanned || results.length}</div><div class="label">已扫描</div></div>
-    <div class="status-item"><div class="num" style="color:${limitHitItems ? '#ff4d4f' : '#52c41a'}">${limitHitItems}</div><div class="label">极限词命中</div></div>
-    <div class="status-item"><div class="num" style="color:${wrongHitItems ? '#ff4d4f' : '#52c41a'}">${wrongHitItems}</div><div class="label">错误描述命中</div></div>
-    <div class="status-item"><div class="num" style="color:${failItems.length ? '#ff4d4f' : '#52c41a'}">${failItems.length}</div><div class="label">LLM 判违规</div></div>
-  `;
-
-  let html = '';
-  if (d.notice) html += '<p style="color:#fa8c16">' + escapeHtml(d.notice) + '</p>';
-  if (typeof d.cached === 'number' || typeof d.fetched === 'number') {
-    html += `<p style="color:#666">资料：缓存 ${d.cached || 0} / 新抓 ${d.fetched || 0}` +
-      (d.goods_file ? `，已写入 goods.md` : '') + '</p>';
-  }
-  if (fetchFail.length) {
-    html += `<p style="color:#ff4d4f">有 ${fetchFail.length} 个商品详情抓取失败（多半是 Cookie 无效/过期或淘宝风控）。失败时标题拿不到，词表结果不可信。</p>`;
-    html += fetchFail.slice(0, 5).map(r =>
-      `<div class="hit-item hit-fail"><b>${escapeHtml(r.id)}</b><small>${escapeHtml(r.error || '无标题')}</small></div>`
-    ).join('');
-  }
-  if (!hitItems.length) {
-    if (!fetchFail.length) {
-      html += '<p style="color:#52c41a">未发现极限词 / 错误描述命中</p>';
-    }
-    document.getElementById('resultContent').innerHTML = html;
-    return;
-  }
-  for (const r of hitItems) {
-    const violated = r.judge && r.judge.includes('"violate": true');
-    const idx = r.index != null ? r.index + '. ' : '';
-    html += `<div class="hit-item ${violated ? 'hit-fail' : 'hit-pass'}">
-      <b>${escapeHtml(idx + (r.title || r.id))}</b>
-      <small><a href="${escapeHtml(r.url)}" target="_blank">${escapeHtml(r.url)}</a></small>
-      ${(r.hits || []).map(h =>
-        `<div>【${escapeHtml(h.category || '词表')}/${escapeHtml(h.source)}】命中「${escapeHtml(h.keyword)}」
-         <span style="color:#999">${escapeHtml(h.context)}</span></div>`
-      ).join('')}
-      ${r.judge ? `<small style="color:${violated ? '#ff4d4f' : '#52c41a'}">LLM: ${escapeHtml(r.judge)}</small>` : ''}
-    </div>`;
-  }
-  // 完整清单（含未命中），方便核对是否扫齐
-  const allList = results.map(r => {
-    const idx = r.index != null ? r.index : '?';
-    const hit = (r.hits && r.hits.length) ? `命中${r.hits.length}` : '无命中';
-    return `${idx}. ${r.title || r.id}（${hit}）`;
+  document.querySelectorAll('.auth-tab').forEach(btn => {
+    btn.onclick = () => switchAuthTab(btn.getAttribute('data-tab'));
   });
-  if (allList.length) {
-    html += '<div style="margin-top:16px;padding:12px;background:#fafafa;border-radius:4px">' +
-      `<div style="font-weight:bold;margin-bottom:6px">扫描清单 ${results.length} 个</div>` +
-      '<pre style="margin:0;white-space:pre-wrap;font-size:12px;line-height:1.6">' +
-      escapeHtml(allList.join('\n')) + '</pre></div>';
+  bindEnterSubmit(['loginUser', 'loginPass'], 'btnLogin');
+  bindEnterSubmit(['regUser', 'regPass', 'regPass2', 'regPhone'], 'btnRegister');
+  bindEnterSubmit(['resetUser', 'resetPhone', 'resetCode', 'resetPass'], 'btnReset');
+  bindEnterSubmit(['recoverPhone', 'recoverCode'], 'btnRecover');
+
+  document.getElementById('btnHome').onclick = () => {
+    showPage(currentUser ? 'home' : 'login');
+  };
+  document.getElementById('btnPending').onclick = async () => {
+    if (!currentUser) return;
+    try { await loadPendingShops(); } catch (e) { alert(e.message); return; }
+    showPage('pending');
+  };
+  document.getElementById('btnGuide').onclick = () => {
+    location.href = 'guide.html';
+  };
+  // 登录页「如何获取 Cookie」直接进 guide.html（免登录），勿拦截
+  async function toggleSettingsPage() {
+    if (!currentIsAdmin) return;
+    if (currentPage === 'settings') {
+      showPage('home');
+      return;
+    }
+    try {
+      if (!settingsLoaded) await loadSettingsPanel();
+    } catch (e) { alert(e.message); return; }
+    showPage('settings');
   }
-  document.getElementById('resultContent').innerHTML = html;
-}
+  document.getElementById('btnLogin').onclick = async () => {
+    const msg = document.getElementById('loginMsg');
+    msg.className = 'muted';
+    msg.textContent = '登录中…';
+    try {
+      const d = await api('/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: document.getElementById('loginUser').value.trim(),
+          password: document.getElementById('loginPass').value
+        })
+      });
+      setToken(d.token);
+      msg.textContent = '';
+      await afterLogin(d.user);
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnRegister').onclick = async () => {
+    const msg = document.getElementById('regMsg');
+    const p1 = document.getElementById('regPass').value;
+    const p2 = document.getElementById('regPass2').value;
+    if (!p1) { msg.className = 'err'; msg.textContent = '请填写密码'; return; }
+    if (p1 !== p2) { msg.className = 'err'; msg.textContent = '两次密码不一致'; return; }
+    msg.className = 'muted';
+    msg.textContent = '注册中…';
+    try {
+      const d = await api('/auth/register', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: document.getElementById('regUser').value.trim(),
+          password: p1,
+          phone: normalizePhone(document.getElementById('regPhone').value)
+        })
+      });
+      setToken(d.token);
+      msg.textContent = '';
+      await afterLogin(d.user);
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnResetSms').onclick = async () => {
+    const msg = document.getElementById('resetMsg');
+    try {
+      await api('/auth/send-sms', {
+        method: 'POST',
+        body: JSON.stringify({
+          purpose: 'reset',
+          username: document.getElementById('resetUser').value.trim(),
+          phone: normalizePhone(document.getElementById('resetPhone').value)
+        })
+      });
+      msg.className = 'ok';
+      msg.textContent = '验证码已发送';
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnReset').onclick = async () => {
+    const msg = document.getElementById('resetMsg');
+    try {
+      const d = await api('/auth/reset-password', {
+        method: 'POST',
+        body: JSON.stringify({
+          username: document.getElementById('resetUser').value.trim(),
+          phone: normalizePhone(document.getElementById('resetPhone').value),
+          code: document.getElementById('resetCode').value.trim(),
+          new_password: document.getElementById('resetPass').value
+        })
+      });
+      setToken(d.token);
+      msg.textContent = '';
+      await afterLogin(d.user);
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnRecoverSms').onclick = async () => {
+    const msg = document.getElementById('recoverMsg');
+    try {
+      await api('/auth/send-sms', {
+        method: 'POST',
+        body: JSON.stringify({
+          purpose: 'recover',
+          phone: normalizePhone(document.getElementById('recoverPhone').value)
+        })
+      });
+      msg.className = 'ok';
+      msg.textContent = '验证码已发送';
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnRecover').onclick = async () => {
+    const msg = document.getElementById('recoverMsg');
+    const list = document.getElementById('recoverList');
+    list.innerHTML = '';
+    try {
+      const d = await api('/auth/recover-usernames', {
+        method: 'POST',
+        body: JSON.stringify({
+          phone: normalizePhone(document.getElementById('recoverPhone').value),
+          code: document.getElementById('recoverCode').value.trim()
+        })
+      });
+      msg.className = 'ok';
+      msg.textContent = '共 ' + d.count + ' 个账号';
+      (d.usernames || []).forEach(name => {
+        const li = document.createElement('li');
+        li.textContent = name;
+        list.appendChild(li);
+      });
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnLogout').onclick = async () => {
+    try { await api('/logout', { method: 'POST', body: '{}' }); } catch (e) {}
+    setToken('');
+    showLoggedOut();
+  };
+  document.getElementById('btnRecharge').onclick = async () => {
+    try { await openRechargeDialog(); } catch (e) { alert(e.message); }
+  };
+  // ---- 用户下拉菜单 ----
+  const userMenu = document.getElementById('userMenu');
+  const adminMenu = document.getElementById('adminMenu');
+  const closeUserMenu = () => userMenu.classList.remove('open');
+  const closeAdminMenu = () => adminMenu.classList.remove('open');
+  // 菜单左边对齐所点按钮的左边
+  function alignMenuToButton(menu, btn) {
+    const host = menu.parentElement;
+    if (!host || !btn) return;
+    const b = btn.getBoundingClientRect();
+    const h = host.getBoundingClientRect();
+    menu.style.left = (b.left - h.left) + 'px';
+  }
+  const btnUserMenuEl = document.getElementById('btnUserMenu');
+  const btnAdminMenuEl = document.getElementById('btnAdminMenu');
+  window.addEventListener('resize', () => {
+    if (userMenu.classList.contains('open')) alignMenuToButton(userMenu, btnUserMenuEl);
+    if (adminMenu.classList.contains('open')) alignMenuToButton(adminMenu, btnAdminMenuEl);
+  });
+  btnUserMenuEl.onclick = (e) => {
+    e.stopPropagation();
+    closeAdminMenu();
+    alignMenuToButton(userMenu, btnUserMenuEl);
+    userMenu.classList.toggle('open');
+  };
+  document.addEventListener('click', (e) => {
+    if (!userMenu.contains(e.target) && e.target.id !== 'btnUserMenu') closeUserMenu();
+    if (!adminMenu.contains(e.target) && e.target.id !== 'btnAdminMenu') closeAdminMenu();
+  });
+  document.getElementById('umRecharge').onclick = async (e) => {
+    e.stopPropagation(); closeUserMenu();
+    try { await openRechargeDialog(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('umSetPhone').onclick = async (e) => {
+    e.stopPropagation(); closeUserMenu();
+    try { await openPhoneDialog(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('umPhone').onclick = async (e) => {
+    if (!currentPhone) return;
+    e.stopPropagation(); closeUserMenu();
+    try { await openPhoneDialog(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('umAutoGo').onclick = async (e) => {
+    e.stopPropagation(); closeUserMenu();
+    if (!currentUser || currentAutoScan) return;
+    const fee = Number(currentAutoScanFeeYuan || 0);
+    const txt = fee > 0
+      ? ('开通此功能 ' + fee.toFixed(2) + ' 元永久开通，是否确定开通？余额不足请先充值。')
+      : '确定免费开通自动扫描？';
+    const ok = await AppDialog.confirm({
+      title: '开通自动扫描',
+      body: txt,
+      okText: '确定',
+      cancelText: '取消',
+      danger: false
+    });
+    if (!ok) return;
+    try {
+      const d = await api('/auto-scan/enable', { method: 'POST', body: '{}' });
+      showLoggedIn(d);
+      showPage('home');
+    } catch (err) {
+      alert(err.message);
+      if (String(err.message || '').indexOf('余额不足') >= 0) {
+        try { await openRechargeDialog(); } catch (e2) {}
+      }
+    }
+  };
+  // ---- 管理员下拉菜单（仅管理员可见；设置/数据库/LLM提示词收在这里）----
+  btnAdminMenuEl.onclick = (e) => {
+    e.stopPropagation();
+    if (!currentIsAdmin) return;
+    closeUserMenu();
+    alignMenuToButton(adminMenu, btnAdminMenuEl);
+    adminMenu.classList.toggle('open');
+  };
+  document.getElementById('amSettings').onclick = async (e) => {
+    e.stopPropagation(); closeAdminMenu();
+    try { await toggleSettingsPage(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('amDb').onclick = (e) => {
+    e.stopPropagation(); closeAdminMenu();
+    if (!currentIsAdmin) return;
+    const url = currentDbAdminUrl || 'db.html';
+    window.open(url, '_blank', 'noopener');
+  };
+  document.getElementById('amLlm').onclick = async (e) => {
+    e.stopPropagation(); closeAdminMenu();
+    try { await openLlmPromptDialog(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('amSuggestions').onclick = async (e) => {
+    e.stopPropagation(); closeAdminMenu();
+    try { await openSuggestionsDialog(); } catch (err) { alert(err.message); }
+  };
+  document.getElementById('umEdit').onclick = (e) => {
+    e.stopPropagation();
+    startInlineRename();
+  };
+  function resetNameRow() {
+    const row = document.getElementById('umNameRow');
+    row.innerHTML =
+      '<span class="um-label">用户名</span>' +
+      '<span class="um-val" id="umName">—</span>' +
+      '<button type="button" class="um-icon" id="umEdit" title="点击修改用户名">✏️</button>';
+    document.getElementById('umEdit').onclick = (e) => { e.stopPropagation(); startInlineRename(); };
+  }
+  function startInlineRename() {
+    const row = document.getElementById('umNameRow');
+    row.innerHTML =
+      '<span class="um-label">用户名</span>' +
+      '<input class="um-input" id="umRenameInput" maxlength="32" value="' + escapeHtml(currentUser) + '">' +
+      '<button type="button" class="um-confirm" id="umRenameOk">确认</button>' +
+      '<span class="um-err" id="umRenameErr"></span>';
+    const inp = document.getElementById('umRenameInput');
+    inp.focus(); inp.select();
+    const doRename = async () => {
+      const errEl = document.getElementById('umRenameErr');
+      const val = inp.value.trim();
+      if (!val) { errEl.textContent = '不能为空'; return; }
+      errEl.textContent = '…';
+      try {
+        await api('/auth/rename', { method: 'POST', body: JSON.stringify({ username: val }) });
+        resetNameRow();
+        const keep = currentPage;
+        await showLoggedIn(await api('/me'));
+        showPage(keep === 'settings' && currentIsAdmin ? 'settings' : 'home');
+        closeUserMenu();
+      } catch (err) {
+        errEl.textContent = err.message || String(err);
+      }
+    };
+    document.getElementById('umRenameOk').onclick = (ev) => { ev.stopPropagation(); doRename(); };
+    inp.onkeydown = (ev) => { if (ev.key === 'Enter') { ev.preventDefault(); doRename(); } };
+  }
+  document.getElementById('btnSaveSettings').onclick = async () => {
+    try { await saveSettingsPanel(); } catch (e) {
+      document.getElementById('settingsMsg').textContent = e.message;
+    }
+  };
+  document.getElementById('btnAdj').onclick = async () => {
+    const msg = document.getElementById('adjMsg');
+    if (!currentIsAdmin) { msg.className = 'err'; msg.textContent = '仅管理员'; return; }
+    const username = document.getElementById('adjUser').value.trim();
+    const yuanVal = parseFloat(document.getElementById('adjYuan').value || '0');
+    const note = document.getElementById('adjNote').value.trim() || '管理员手动充值';
+    if (!username) { msg.className = 'err'; msg.textContent = '请填用户名'; return; }
+    if (!yuanVal) { msg.className = 'err'; msg.textContent = '金额不能为 0'; return; }
+    const amount_cents = Math.round(yuanVal * 100);
+    msg.className = 'muted';
+    msg.textContent = '提交中…';
+    try {
+      const d = await api('/admin/adjust', {
+        method: 'POST',
+        body: JSON.stringify({ username, amount_cents, note })
+      });
+      msg.className = 'ok';
+      msg.textContent = '已充值 ' + yuan(amount_cents) + '，余额 ' + yuan(d.balance_cents);
+      if (username === currentUser) {
+        const keep = currentPage;
+        showLoggedIn(await api('/me'));
+        showPage(keep === 'settings' ? 'settings' : 'home');
+      }
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnScanFee').onclick = async () => {
+    const msg = document.getElementById('scanFeeMsg');
+    if (!currentIsAdmin) { msg.className = 'err'; msg.textContent = '仅管理员'; return; }
+    const yuanVal = parseFloat(document.getElementById('scanFeeYuan').value || '0');
+    if (yuanVal < 0) { msg.className = 'err'; msg.textContent = '不能为负'; return; }
+    msg.className = 'muted';
+    msg.textContent = '保存中…';
+    try {
+      const d = await api('/admin/scan-fee', {
+        method: 'POST',
+        body: JSON.stringify({ yuan: yuanVal })
+      });
+      currentScanFeeCents = Number(d.scan_fee_cents || 0);
+      msg.className = 'ok';
+      msg.textContent = '已设为 ' + yuan(currentScanFeeCents) + '/条';
+      updateAcctBar();
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnAutoScanFee').onclick = async () => {
+    const msg = document.getElementById('autoScanFeeMsg');
+    if (!currentIsAdmin) { msg.className = 'err'; msg.textContent = '仅管理员'; return; }
+    const yuanVal = parseFloat(document.getElementById('autoScanFeeYuan').value || '0');
+    if (yuanVal < 0) { msg.className = 'err'; msg.textContent = '不能为负'; return; }
+    msg.className = 'muted';
+    msg.textContent = '保存中…';
+    try {
+      const d = await api('/admin/auto-scan-fee', {
+        method: 'POST',
+        body: JSON.stringify({ yuan: yuanVal })
+      });
+      currentAutoScanFeeYuan = Number(d.auto_scan_fee_yuan || 0);
+      msg.className = 'ok';
+      msg.textContent = '已设为 ' + Number(currentAutoScanFeeYuan).toFixed(2) + ' 元';
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+  document.getElementById('btnFilterPrompt').onclick = async () => {
+    const msg = document.getElementById('filterPromptMsg');
+    if (!currentIsAdmin) { msg.className = 'err'; msg.textContent = '仅管理员'; return; }
+    msg.className = 'muted';
+    msg.textContent = '保存中…';
+    try {
+      await api('/llm/filter-prompt', {
+        method: 'POST',
+        body: JSON.stringify({ prompt: document.getElementById('filterPromptText').value })
+      });
+      msg.className = 'ok';
+      msg.textContent = '已保存';
+    } catch (e) {
+      msg.className = 'err';
+      msg.textContent = e.message;
+    }
+  };
+
+  const tab = new URLSearchParams(location.search).get('tab');
+  if (['register', 'reset', 'recover', 'login'].includes(tab)) switchAuthTab(tab);
+
+  loadClientDownloadLinks().catch(() => {});
+
+  function maybeOpenGuideFromHash() {
+    const hash = (location.hash || '').replace(/^#/, '').toLowerCase();
+    if (hash === 'guide') {
+      location.replace('guide.html');
+      return true;
+    }
+    return false;
+  }
+  async function maybeOpenRechargeFromHash() {
+    const hash = (location.hash || '').replace(/^#/, '').toLowerCase();
+    if (hash !== 'recharge') return false;
+    try {
+      await openRechargeDialog();
+    } catch (e) {
+      alert(e.message || String(e));
+    }
+    return true;
+  }
+  window.addEventListener('hashchange', () => {
+    maybeOpenGuideFromHash();
+    maybeOpenRechargeFromHash();
+  });
+
+  // 客户端带 ?ticket= 打开：一次性票换会话，不必再填用户名密码
+  try {
+    if (await consumeTicketFromUrl()) {
+      maybeOpenGuideFromHash();
+      return;
+    }
+  } catch (e) {
+    alert(e.message || String(e));
+  }
+  // 带 ?tab=register/reset/recover 打开（如客户端「注册」菜单）：
+  // 强制显示登录/注册卡片并切到对应页签，不被已保存会话覆盖成主页
+  const bootTab = new URLSearchParams(location.search).get('tab');
+  if (['register', 'reset', 'recover'].includes(bootTab)) {
+    showLoggedOut();
+    switchAuthTab(bootTab);
+    return;
+  }
+  // Cookie / localStorage 任一有会话即可自动登录
+  try {
+    const me = await api('/me');
+    if (me && me.username) {
+      await afterLogin(me);
+      maybeOpenGuideFromHash();
+      return;
+    }
+  } catch (e) {
+    /* 无会话 */
+  }
+  if (getToken()) {
+    try {
+      await afterLogin(await api('/me'));
+      maybeOpenGuideFromHash();
+      return;
+    } catch (e) {
+      setToken('');
+    }
+  }
+  if (maybeOpenGuideFromHash()) return;
+  showLoggedOut();
+})();
 </script>
 </body>
 </html>

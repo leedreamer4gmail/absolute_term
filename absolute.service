@@ -1,5 +1,5 @@
 [Unit]
-Description=Absolute Term Scan API (unix socket)
+Description=Absolute Term public API (/absolute_term)
 After=network.target
 
 [Service]

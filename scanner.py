@@ -18,8 +18,10 @@ import argparse
 import configparser
 import csv
 import json
+import os
 import re
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -198,29 +200,124 @@ def _extract_json_obj(text: str) -> dict | None:
     return None
 
 
-def llm_judge(item: dict, hits: list[dict], rules_text: str = "") -> str:
-    """LLM 二次判定(可选): 汇总命中项判断是否真违规。返回结论文本。"""
+_DEFAULT_JUDGE_PROMPT = (
+    "你是电商广告合规审核员。下面商品文本命中了极限词或错误描述候选, "
+    "请判断哪些构成《广告法》绝对化用语违规或虚假宣传, 哪些是正常表述。\n"
+    "判定原则：\n"
+    "1. 只有宣称本品优于一切/无人能及/行业第一等「绝对化推销」才算违规，"
+    "例如：最好、第一、天花板、最便宜、独一无二（吹效果）。\n"
+    "2. 单字「最/第」等出现在客观规格、数量、顺序、时间里不算违规。"
+    "例如：包装最小规格、最小起订量、最大承重、最新生产日期、"
+    "最多可优惠40元、最后一件库存、最初配方、最高立减。\n"
+    "3. 对每条命中都必须输出一条 violations，violate 填 true 或 false，并写简短 reason。\n\n"
+    "商品标题: {title}\n链接: {url}\n\n{hits_block}\n{rules}"
+    "只输出一个 JSON 对象，不要 markdown，不要解释。"
+    '格式: {"violations":[{"keyword":"...","source":"...","violate":true,"reason":"..."}]}'
+)
+
+
+def _violate_is_true(val: object) -> bool:
+    if val is True or val == 1:
+        return True
+    if isinstance(val, str) and val.strip().lower() in ("true", "1", "yes"):
+        return True
+    return False
+
+
+def filter_hits_by_judge(hits: list[dict], judge: str) -> list[dict]:
+    """LLM 已给出结构化判定时，只保留 violate=true 的词表命中；解析失败则原样返回。"""
+    raw = (judge or "").strip()
+    if not raw or not hits:
+        return list(hits)
+    obj = _extract_json_obj(raw)
+    if not isinstance(obj, dict) or "violations" not in obj:
+        return list(hits)
+    viols = obj.get("violations")
+    if not isinstance(viols, list):
+        return list(hits)
+    true_kws: set[str] = set()
+    for v in viols:
+        if not isinstance(v, dict):
+            continue
+        if not _violate_is_true(v.get("violate")):
+            continue
+        kw = str(v.get("keyword") or "").strip()
+        if kw:
+            true_kws.add(kw)
+    return [h for h in hits if str(h.get("keyword") or "").strip() in true_kws]
+
+
+def load_judge_prompt(config_path: str | Path | None = None, llm_conf: dict | None = None) -> str:
+    """读取 LLM 判定提示词：优先 llm_conf['judge_prompt']，否则 config.ini [llm] judge_prompt。"""
+    raw = ""
+    if isinstance(llm_conf, dict):
+        raw = str(llm_conf.get("judge_prompt") or "").strip()
+    if not raw:
+        import configparser
+
+        cfg = configparser.ConfigParser()
+        cfg.optionxform = str
+        path = Path(config_path or CFG)
+        if path.is_file():
+            cfg.read(str(path), encoding="utf-8")
+            local = path.with_name("config.ini.local")
+            if local.is_file():
+                cfg.read(str(local), encoding="utf-8")
+            if cfg.has_option("llm", "judge_prompt"):
+                raw = (cfg.get("llm", "judge_prompt") or "").strip()
+    return raw or _DEFAULT_JUDGE_PROMPT
+
+
+def apply_judge_prompt(template: str, *, title: str, url: str, hits_block: str, rules: str) -> str:
+    """替换占位符；不用 str.format，避免模板里 JSON 花括号被误解析。"""
+    out = template
+    for key, val in (
+        ("{title}", title),
+        ("{url}", url),
+        ("{hits_block}", hits_block),
+        ("{rules}", rules),
+    ):
+        out = out.replace(key, val)
+    return out
+
+
+def llm_judge(
+    item: dict,
+    hits: list[dict],
+    rules_text: str = "",
+    config_path: str | Path | None = None,
+    llm_conf: dict | None = None,
+) -> str:
+    """LLM 二次判定(可选): 汇总命中项判断是否真违规。返回结论文本。
+
+    llm_conf: 内存中的 {api_url,model,api_key,judge_prompt?}（客户端从云端拉取，不落盘）。
+    提示词来自 config.ini [llm] judge_prompt，勿硬编码业务文案。
+    """
     from llm_config import call_chat
 
-    lines = [f"商品标题: {item['title']}", f"链接: {item['url']}", ""]
+    hit_lines: list[str] = []
     for h in hits:
         cat = h.get("category") or "候选"
-        lines.append(f"- [{cat}/{h['source']}] 命中「{h['keyword']}」 上下文: {h['context']}")
-    prompt = (
-        "你是电商广告合规审核员。下面商品文本命中了极限词或错误描述候选, "
-        "请判断哪些构成《广告法》绝对化用语违规或虚假宣传, 哪些是正常表述。\n\n"
-        + "\n".join(lines)
-        + "\n\n"
-        + (f"《规则文档》\n{rules_text}\n\n" if rules_text else "")
-        + "只输出一个 JSON 对象，不要 markdown，不要解释。"
-        + '格式: {"violations":[{"keyword":"...","source":"...","violate":true,"reason":"..."}]}'
+        hit_lines.append(
+            f"- [{cat}/{h['source']}] 命中「{h['keyword']}」 上下文: {h['context']}"
+        )
+    hits_block = "\n".join(hit_lines)
+    rules = f"《规则文档》\n{rules_text}\n\n" if rules_text else ""
+    template = load_judge_prompt(config_path=config_path, llm_conf=llm_conf)
+    prompt = apply_judge_prompt(
+        template,
+        title=str(item.get("title") or ""),
+        url=str(item.get("url") or ""),
+        hits_block=hits_block,
+        rules=rules,
     )
     try:
         out = call_chat(
             [{"role": "user", "content": prompt}],
             temperature=0.2,
             timeout=90,
-            config_path=CFG,
+            config_path=None if llm_conf else (config_path or CFG),
+            conf=llm_conf,
         )
         obj = _extract_json_obj(out)
         if obj is not None:
@@ -228,6 +325,148 @@ def llm_judge(item: dict, hits: list[dict], rules_text: str = "") -> str:
         return out[:500]
     except Exception as e:  # noqa: BLE001
         return f"LLM调用失败: {e}"
+
+
+def build_problem_md(hits: list[dict], judge: str = "") -> str:
+    """把命中结果写成 goods_tb.problem 用的 markdown。无问题返回空串。"""
+    if not hits and not (judge or "").strip():
+        return ""
+    main_lines: list[str] = []
+    detail_lines: list[str] = []
+    other_lines: list[str] = []
+    for h in hits:
+        src = str(h.get("source") or "")
+        cat = str(h.get("category") or "")
+        kw = str(h.get("keyword") or "")
+        ctx = str(h.get("context") or "")
+        bullet = f"- [{cat}/{src}] 命中「{kw}」：{ctx}".rstrip("：")
+        if src in ("主图文字", "标题"):
+            main_lines.append(bullet)
+        elif src in ("详情文本", "详情图文字"):
+            detail_lines.append(bullet)
+        else:
+            other_lines.append(bullet)
+    parts: list[str] = []
+    if main_lines:
+        parts.append("# 主图\n" + "\n".join(main_lines))
+    if detail_lines:
+        parts.append("# 详情\n" + "\n".join(detail_lines))
+    if other_lines:
+        parts.append("# 其它\n" + "\n".join(other_lines))
+    j = (judge or "").strip()
+    if j:
+        parts.append("# LLM\n```json\n" + j + "\n```")
+    return "\n\n".join(parts).strip()
+
+
+_RAPID: object | None = None
+_RAPID_ERR: str = ""
+
+
+def _ocr_file_log(msg: str) -> None:
+    path = (os.environ.get("ABSOLUTE_CLIENT_LOG") or "").strip()
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except OSError:
+        pass
+
+
+def _rapid() -> object:
+    global _RAPID, _RAPID_ERR
+    if _RAPID is None:
+        try:
+            from rapidocr_onnxruntime import RapidOCR
+
+            _RAPID = RapidOCR()
+            _RAPID_ERR = ""
+        except Exception as e:  # noqa: BLE001
+            _RAPID_ERR = str(e)
+            _ocr_file_log(f"OCR_ENGINE_FAIL {e}")
+            raise RuntimeError(f"本机 RapidOCR 不可用: {e}") from e
+    return _RAPID
+
+
+def probe_local_ocr() -> str:
+    """探测本机 OCR。成功返回 ok，失败返回原因（不抛）。"""
+    try:
+        _rapid()
+        return "ok"
+    except Exception as e:  # noqa: BLE001
+        return str(e)
+
+
+def ocr_image_bytes(data: bytes) -> list[str]:
+    """本机 RapidOCR 识别图片字节，返回文本行。"""
+    if not data:
+        return []
+    import io
+    import tempfile
+
+    from PIL import Image
+
+    try:
+        im = Image.open(io.BytesIO(data))
+        im.load()
+    except Exception as e:  # noqa: BLE001
+        raise RuntimeError(f"图片无法解码: {e}") from e
+    if im.mode not in ("RGB", "L"):
+        im = im.convert("RGB")
+    elif im.mode == "L":
+        im = im.convert("RGB")
+    engine = _rapid()
+    path = ""
+    try:
+        with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
+            im.save(tmp, format="JPEG", quality=95)
+            path = tmp.name
+        result, _ = engine(path)
+    finally:
+        if path:
+            try:
+                Path(path).unlink(missing_ok=True)
+            except OSError:
+                pass
+    if not result:
+        return []
+    return [str(line[1]).strip() for line in result if line and len(line) > 1 and str(line[1]).strip()]
+
+
+def ocr_image_url_local(img_url: str, timeout: int = 45) -> list[str]:
+    """下载图片后本机 OCR。带淘宝 Cookie/Referer；失败抛错，不假装没字。"""
+    url = (img_url or "").strip()
+    if not url:
+        return []
+    if url.startswith("//"):
+        url = "https:" + url
+    headers = {
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        ),
+        "Referer": "https://item.taobao.com/",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+    }
+    try:
+        from fetch_item import load_cookie
+
+        ck = load_cookie()
+        if ck:
+            headers["Cookie"] = ck
+    except Exception:  # noqa: BLE001
+        pass
+    try:
+        r = requests.get(url, timeout=timeout, headers=headers)
+        r.raise_for_status()
+        ctype = (r.headers.get("Content-Type") or "").lower()
+        if "text/html" in ctype or r.content[:15].lstrip().startswith(b"<!DOCTYPE"):
+            raise RuntimeError(f"下载到的不是图片（Content-Type={ctype or '空'}）")
+        return ocr_image_bytes(r.content)
+    except Exception as e:  # noqa: BLE001
+        _ocr_file_log(f"OCR_FAIL url={url[:160]} err={e}")
+        raise RuntimeError(f"OCR 下载/识别失败: {e}") from e
 
 
 def write_xlsx(results: list[dict], out_path: Path):

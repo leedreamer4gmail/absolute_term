@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>使用方法 · 获取 Cookie</title>
+<link rel="stylesheet" href="/shared/ui.css">
+<style>
+:root {
+  --bg: #12141A;
+  --panel: #16181F;
+  --border: #2E3340;
+  --text: #EDEDEF;
+  --muted: #8A8F98;
+  --title: #9AA3E8;
+  --acc: #5E6AD2;
+}
+html { overflow-y: scroll; }
+body {
+  margin: 0; padding: 20px 16px 40px;
+  background: var(--bg); color: var(--text);
+  font: 13px/1.55 "Microsoft YaHei UI", "Segoe UI", sans-serif;
+}
+.wrap { max-width: 960px; margin: 0 auto; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 16px 18px 20px;
+}
+h1 { margin: 0 0 10px; font-size: 18px; color: var(--title); font-weight: 600; }
+.hint { margin: 0 0 10px; color: var(--muted); }
+.hint b { color: var(--text); }
+.guide-steps { margin: 0 0 14px; padding-left: 22px; line-height: 1.75; }
+.guide-steps li { margin: 4px 0; }
+.guide-fig {
+  display: block; max-width: 100%; height: auto;
+  border: 1px solid var(--border); border-radius: 8px; background: #0d1218;
+}
+.top { margin-bottom: 10px; }
+.top a { color: var(--title); text-decoration: none; }
+.top a:hover { text-decoration: underline; }
+code {
+  font-family: Consolas, monospace;
+  font-size: 12px;
+  background: #1E222D;
+  padding: 1px 5px;
+  border-radius: 3px;
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="top"><a href="./">← 返回小李的电商扫描器</a></p>
+  <div class="card">
+    <h1>使用方法 · 获取 Cookie</h1>
+    <p class="hint"><b>必须使用 Chrome 浏览器</b>（不要用 Edge）。本页<strong>无需登录</strong>。按下面步骤复制后，粘贴到本机客户端 Cookie 文本框（支持整段 cURL，程序会自动抽出 Cookie）。</p>
+    <ol class="guide-steps">
+      <li>随便打开一个淘宝/天猫<strong>产品页</strong>链接</li>
+      <li>按 <b>F12</b> 打开开发者模式（右侧或下方出现开发者面板）</li>
+      <li>切到 <b>Network（网络）</b>，点选筛选 <b>Doc</b>，再按 <b>F5</b> 刷新页面</li>
+      <li>在列表里找到 <code>item.htm</code> 那一行 → 右键 → <b>Copy</b> → <b>Copy as cURL (cmd)</b>（按图中箭头操作）</li>
+      <li>回到本机客户端，粘贴到 <b>Cookie(可选)</b> 文本框</li>
+    </ol>
+    <img class="guide-fig" src="img/cookie_guide.png" alt="Chrome 开发者工具：Network → Doc → item.htm → Copy as cURL (cmd)">
+  </div>
+</div>
+</body>
+</html>

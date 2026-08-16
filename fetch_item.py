@@ -30,7 +30,6 @@ import requests
 from bs4 import BeautifulSoup
 
 HERE = Path(__file__).resolve().parent
-COOKIE_FILE = Path(os.environ.get("ABSOLUTE_COOKIE_FILE") or (HERE / "data" / "cookie.txt"))
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
 
@@ -38,11 +37,22 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 DETAIL_DESC_API = "https://h5api.m.taobao.com/h5/mtop.taobao.detail.getdesc/6.0/"
 
 
+def cookie_file() -> Path:
+    """每次读取环境变量，避免 import 时写死路径导致客户端 Cookie 失效。"""
+    env = (os.environ.get("ABSOLUTE_COOKIE_FILE") or "").strip()
+    return Path(env) if env else (HERE / "data" / "cookie.txt")
+
+
+# 兼容旧代码引用名；真正读写一律走 cookie_file()
+COOKIE_FILE = HERE / "data" / "cookie.txt"
+
+
 def load_cookie() -> str:
-    """从 data/cookie.txt 读取 cookie。支持 'cookie=xxx' 或直接 xxx。"""
-    if not COOKIE_FILE.is_file():
+    """从 Cookie 文件读取。支持 'cookie=xxx' 或直接 xxx。"""
+    path = cookie_file()
+    if not path.is_file():
         return ""
-    text = COOKIE_FILE.read_text(encoding="utf-8").strip()
+    text = path.read_text(encoding="utf-8").strip()
     m = re.match(r"^cookie\s*=\s*(.+)$", text, re.I | re.S)
     if m:
         text = m.group(1).strip().strip('"').strip("'")
@@ -112,13 +122,14 @@ def _drop_cookie_keys(s: requests.Session, keys: list[str]) -> None:
 
 
 def _persist_cookie(s: requests.Session) -> None:
-    """把刷新后的 Cookie 写回 data/cookie.txt。"""
+    """把刷新后的 Cookie 写回当前 Cookie 文件。"""
     ck = (s.headers.get("Cookie") or "").strip()
     if not ck or ck.count("=") < 3:
         return
     try:
-        COOKIE_FILE.parent.mkdir(parents=True, exist_ok=True)
-        COOKIE_FILE.write_text(ck, encoding="utf-8")
+        path = cookie_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(ck, encoding="utf-8")
     except OSError:
         pass
 
@@ -239,8 +250,21 @@ def _ensure_h5_token(s: requests.Session, timeout: int = 15, force: bool = False
         _persist_cookie(s)
 
 
+def _mtop_log(msg: str) -> None:
+    """mtop 日志：打印到控制台，并追加到 ABSOLUTE_CLIENT_LOG（若有）。"""
+    print(msg, flush=True)
+    log_path = (os.environ.get("ABSOLUTE_CLIENT_LOG") or "").strip()
+    if not log_path:
+        return
+    try:
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} {msg}\n")
+    except OSError:
+        pass
+
+
 def _mtop_call(s: requests.Session, api: str, api_ver: str, data: dict, timeout: int = 30) -> dict:
-    """通用 mtop 接口调用(带签名)。令牌过期/挤爆风控会退避重试。"""
+    """通用 mtop 接口调用(带签名)。令牌过期可重试；滑块 SM 校验不重试（重试无意义）。"""
     _ensure_h5_token(s, timeout=min(timeout, 15))
     data_str = json.dumps(data, ensure_ascii=False)
     appkey = "12574478"
@@ -292,9 +316,17 @@ def _mtop_call(s: requests.Session, api: str, api_ver: str, data: dict, timeout:
             payload = _once()
         except RuntimeError as e:
             last_err = e
-            if _is_wind_control(str(e)) and attempt < 3:
+            err = str(e)
+            # 滑块 SM / USER_VALIDATE：重试只会空耗时间
+            if "SM:" in err.upper() or "USER_VALIDATE" in err.upper():
+                _mtop_log(f"[mtop] {api} 需要滑块验证，停止重试: {err[:120]}")
+                raise RuntimeError(
+                    f"{api} 触发淘宝滑块验证(RGV587/SM)。"
+                    "请用 Chrome 打开淘宝完成验证后重新「读 Cookie」，或先只抓当前商品链接。"
+                ) from e
+            if _is_wind_control(err) and attempt < 3:
                 wait = (3, 8, 20)[attempt]
-                print(f"[mtop] {api} 风控，{wait}s 后重试 ({attempt+1}/3)", flush=True)
+                _mtop_log(f"[mtop] {api} 风控，{wait}s 后重试 ({attempt+1}/3)")
                 time.sleep(wait)
                 _ensure_h5_token(s, timeout=min(timeout, 15), force=True)
                 continue
@@ -308,9 +340,15 @@ def _mtop_call(s: requests.Session, api: str, api_ver: str, data: dict, timeout:
                 raise RuntimeError(f"{api} 令牌过期且刷新失败，请重新粘贴浏览器 Cookie")
             _persist_cookie(s)
             return payload
+        if "SM:" in ret_u.upper() or "USER_VALIDATE" in ret_u.upper():
+            _mtop_log(f"[mtop] {api} {ret_u[:80]}（滑块，不重试）")
+            raise RuntimeError(
+                f"{api} 触发淘宝滑块验证: {ret_u}。"
+                "请用 Chrome 打开淘宝完成验证后重新「读 Cookie」，或先只抓当前商品链接。"
+            )
         if _is_wind_control(ret_u) and attempt < 3:
             wait = (3, 8, 20)[attempt]
-            print(f"[mtop] {api} {ret_u[:40]}，{wait}s 后重试 ({attempt+1}/3)", flush=True)
+            _mtop_log(f"[mtop] {api} {ret_u[:40]}，{wait}s 后重试 ({attempt+1}/3)")
             time.sleep(wait)
             _ensure_h5_token(s, timeout=min(timeout, 15), force=True)
             continue

@@ -100,9 +100,14 @@ def call_chat(
     temperature: float = 0.5,
     timeout: int = 90,
     config_path: str | Path | None = None,
+    conf: dict | None = None,
 ) -> str:
     text, _usage = call_chat_with_usage(
-        messages, temperature=temperature, timeout=timeout, config_path=config_path
+        messages,
+        temperature=temperature,
+        timeout=timeout,
+        config_path=config_path,
+        conf=conf,
     )
     return text
 
@@ -112,25 +117,35 @@ def call_chat_with_usage(
     temperature: float = 0.5,
     timeout: int = 90,
     config_path: str | Path | None = None,
+    conf: dict | None = None,
 ) -> tuple[str, dict]:
     import json
     import urllib.error
     import urllib.request
 
-    conf = load_llm_config(config_path=config_path)
+    if conf is not None:
+        use = {
+            "api_key": str(conf.get("api_key") or "").strip(),
+            "api_url": normalize_chat_url(str(conf.get("api_url") or "")),
+            "model": str(conf.get("model") or "").strip(),
+        }
+        if not use["api_key"] or not use["api_url"] or not use["model"]:
+            raise ValueError("内存 LLM 配置不完整：需要 api_url、model、api_key")
+    else:
+        use = load_llm_config(config_path=config_path)
     payload = {
-        "model": conf["model"],
+        "model": use["model"],
         "messages": messages,
         "temperature": temperature,
         "thinking": {"type": "disabled"},
     }
     body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(
-        conf["api_url"],
+        use["api_url"],
         data=body,
         headers={
             "Content-Type": "application/json",
-            "Authorization": f"Bearer {conf['api_key']}",
+            "Authorization": f"Bearer {use['api_key']}",
         },
         method="POST",
     )
