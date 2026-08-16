@@ -37,13 +37,13 @@
 
 ### 仓库与云端
 
-- 仓库：`D:\project\absolute_term`（Windows）。对外名 **小李的电商扫描器**；URL/服务名仍是 `absolute_term`，勿改。
+- 仓库：本机开发目录（Windows）。对外名 **小李的电商扫描器**；URL/服务名仍是 `absolute_term`，勿改。
 - 公众页：`https://leedreamer.cn/absolute_term/`
-- SSH：`admin@8.219.6.216`，代码 `/home/project/absolute_term`，systemd 服务名 `absolute`，Unix socket `/run/absolute/absolute.sock`。
-- 库：服务器本机 PostgreSQL `127.0.0.1:5432` / `absolute_term_db`。本机开发机**没有**这套库。
+- 生产 SSH / 绝对路径 / 数据库连接：**只写服务器本机笔记或 `config.ini.local`，禁止写进公开 Git 仓库。** systemd 服务名 `absolute`，Unix socket 示例 `/run/absolute/absolute.sock`。
+- 库：服务器本机 PostgreSQL（库名 `absolute_term_db`）。本机开发机通常没有这套库。
 - 密钥只在服务器 `config.ini.local`（db 密码、password_salt、llm api_key、短信 AK/SK）。**禁止**写进回复、禁止提交。
 - 公司内部另一套 `/absolute/` 与本仓库无关，勿混。
-- 本仓没有 OSS 配置。安装包上传用现有 `packaging\build_installer.ps1 -Publish`（scp 到 `www/downloads/`）。改完云端 `config.ini` 的 `client_app_version` 再重启服务，顺序：先传 exe，再抬版本号，避免用户下到旧包。
+- 本仓没有 OSS 配置。安装包上传用现有 `packaging\build_installer.ps1 -Publish`（目标主机用环境变量或本地配置，勿把服务器 IP/账号写进公开脚本默认值）。改完云端 `config.ini` 的 `client_app_version` 再重启服务，顺序：先传 exe，再抬版本号，避免用户下到旧包。
 
 ### 打包（新用户要能开箱跑）
 
@@ -187,7 +187,7 @@
 云端 Linux
   nginx → /absolute_term/     → www/index.html
        → /absolute_term/api/  → Unix socket → absolute.service → api_server.py
-  代码目录：/home/project/absolute_term
+  代码目录：服务器上的项目根目录（勿把真实主机路径写进公开仓库）
   服务：absolute.service（socket 默认 /run/absolute/absolute.sock）
   PostgreSQL：absolute_term_db
   配置：config.ini + config.ini.local（db 密码、password_salt、llm api_key、阿里云短信 AK/SK）
@@ -351,7 +351,7 @@
 ## 复原步骤摘要
 
 1. 建 PostgreSQL 库 `absolute_term_db`，用户授权
-2. 部署代码到 `/home/project/absolute_term`，写好 `config.ini.local`
+2. 部署代码到服务器项目目录，写好 `config.ini.local`
 3. 装依赖（见 `requirements.txt`），起 `absolute.service`，nginx 反代 `/absolute_term/` 与 `/absolute_term/api/`
 4. Windows：装依赖 → 编辑本机 `file/` 词表 → `python client\app.py` → 登录云端 → 抓取扫描入库
 5. 浏览器打开公众页登录，直接看已扫店铺与问题商品展开表

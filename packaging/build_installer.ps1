@@ -79,8 +79,28 @@ if ((Test-Path $signScript) -and (Test-Path $localIni) -and (Select-String -Path
 }
 
 if ($Publish) {
-  $remote = "admin@8.219.6.216"
-  $remoteDir = "/home/project/absolute_term/www/downloads"
+  # 勿把真实服务器写进公开仓库。优先环境变量，其次 config.ini.local [publish]
+  $remote = ""
+  if ($env:ABSOLUTE_PUBLISH_REMOTE) { $remote = $env:ABSOLUTE_PUBLISH_REMOTE.Trim() }
+  $remoteDir = ""
+  if ($env:ABSOLUTE_PUBLISH_DIR) { $remoteDir = $env:ABSOLUTE_PUBLISH_DIR.Trim() }
+  if (-not $remote -or -not $remoteDir) {
+    $localIni = Join-Path $Root "config.ini.local"
+    if (Test-Path $localIni) {
+      $lines = Get-Content -LiteralPath $localIni -Encoding UTF8
+      $in = $false
+      foreach ($line in $lines) {
+        $t = $line.Trim()
+        if ($t -match '^\[(.+)\]$') { $in = ($Matches[1] -eq "publish"); continue }
+        if (-not $in) { continue }
+        if ($t -match '^remote\s*=\s*(.*)$' -and -not $remote) { $remote = $Matches[1].Trim() }
+        if ($t -match '^dir\s*=\s*(.*)$' -and -not $remoteDir) { $remoteDir = $Matches[1].Trim() }
+      }
+    }
+  }
+  if (-not $remote -or -not $remoteDir) {
+    throw "Publish 需要环境变量 ABSOLUTE_PUBLISH_REMOTE + ABSOLUTE_PUBLISH_DIR，或 config.ini.local [publish] remote/dir"
+  }
   Write-Host ("Upload to {0}:{1} ..." -f $remote, $remoteDir)
   ssh -o BatchMode=yes $remote "mkdir -p $remoteDir"
   $localSetup = Join-Path $Bundle "Setup.exe"

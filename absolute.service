@@ -6,11 +6,11 @@ After=network.target
 Type=simple
 User=admin
 Group=www-data
-WorkingDirectory=/home/project/absolute_term
+WorkingDirectory=/opt/absolute_term
 Environment=ABSOLUTE_SOCK=/run/absolute/absolute.sock
 RuntimeDirectory=absolute
 RuntimeDirectoryMode=0775
-ExecStart=/usr/bin/python3 /home/project/absolute_term/api_server.py
+ExecStart=/usr/bin/python3 /opt/absolute_term/api_server.py
 Restart=always
 RestartSec=2
 

@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """OCR HTTP 服务 — 基于 RapidOCR(onnxruntime),供本地扫描器批量调用。
 
-部署: /home/project/company-ocr/bin/python ocr_server.py
 用法: POST /ocr (multipart: file=图片) 或 POST /ocr_url (json: {"url": "..."})
 返回: {"texts": ["行1", "行2", ...], "count": N}
 """
